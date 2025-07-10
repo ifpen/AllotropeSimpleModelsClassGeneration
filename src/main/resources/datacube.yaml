@@ -1,0 +1,74 @@
+openapi: 3.1.0
+info:
+  title: ASM Datacube Schemas
+  version: 2025-03
+
+components:
+  schemas:
+    Datacube:
+      type: object
+      properties:
+        label:
+          type: string
+        DatacubeStructure:
+          $ref: '#/components/schemas/datacubeStructure'
+        DatacubeData:
+          $ref: '#/components/schemas/datacubeData'
+
+    datacubeStructure:
+      type: object
+      properties:
+        dimensions:
+          type: array
+          $ref: '#/components/schemas/datacubeComponent'
+        measures:
+          type: array
+          $ref: '#/components/schemas/datacubeComponent'
+
+    datacubeComponent:
+        type: object
+        properties:
+          componentDataType:
+            type: string
+            enum:
+              - DOUBLE
+              - FLOAT
+              - DECIMAL
+              - INTEGER
+              - BYTE
+              - INT
+              - SHORT
+              - LONG
+              - STRING
+              - BOOLEAN
+              - DATE_TIME
+          scale:
+            type: string
+            enum:
+              - NOMINAL
+              - ORDINAL
+              - CARDINAL
+              - INTERVAL
+              - RANGE
+          concept:
+            type: string
+          unit:
+            type: string
+
+    datacubeData:
+      type: object
+      properties:
+        dimensions:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+        measures:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double

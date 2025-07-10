@@ -1,0 +1,397 @@
+openapi: 3.1.0
+info:
+  title: ASM Gas-Chromatography Schemas
+  version: 2025-03
+
+components:
+  schemas:
+    gasChromatographyAggregateDocument:
+      type: object
+      properties:
+        device system document:
+          $ref: '#/components/schemas/deviceSystemDocument'
+        gas chromatography document:
+          type: array
+          items:
+            $ref: '#/components/schemas/gasChromatographyDocument'
+      required:
+        - device system document
+        - gas chromatography document
+
+    deviceSystemDocument:
+      type: object
+      properties:
+        asset management identifier:
+          type: string
+          description: An asset management identifier is an identifier that is registered within an asset / inventory management system that identifies an equipment.
+        device identifier:
+          type: string
+          description: A device identifier is an identifier that identifies some device.
+        model number:
+          type: string
+          description: A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class.
+        equipment serial number:
+          type: string
+          description: Equipment serial number is measurement metadata that identifies an equipment used in the measuring by its serial number.
+        firmware version:
+          type: string
+          description: A firmware version is a version number that identifies the firmware of a device.
+        description:
+          type: string
+          description: A description is a proposition about an existing entity.
+        brand name:
+          type: string
+          description: A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark.
+        product manufacturer:
+          type: string
+          description: An equipment manufacturer is a symbol that denotes the entity manufacturing the equipment.
+        pump model number:
+          type: string
+          description: A pump model number is a model number that denotes some class of pumps.
+        detector model number:
+          type: string
+          description: A detector model number is a model number that denotes some class of detectors.
+        device document:
+          type: array
+          description: A device document is a document that encompasses the information associated with a device.
+          items:
+            $ref: '#/components/schemas/deviceDocument'
+      required:
+        - asset management identifier
+
+    deviceDocument:
+      type: object
+      properties:
+        device type:
+          type: string
+          description: A device type is a classification datum that classifies the type of device used.
+        device identifier:
+          type: string
+          description: A device identifier is an identifier that identifies some device.
+        model number:
+          type: string
+          description: A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class.
+        product manufacturer:
+          type: string
+          description: An equipment manufacturer is a symbol that denotes the entity manufacturing the equipment.
+        brand name:
+          type: string
+          description: A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark.
+        equipment serial number:
+          type: string
+          description: Equipment serial number is measurement metadata that identifies an equipment used in the measuring by its serial number.
+        firmware version:
+          type: string
+          description: A firmware version is a version number that identifies the firmware of a device.
+      required:
+        - device type
+
+    gasChromatographyDocument:
+      type: object
+      properties:
+        analyst:
+          type: string
+          description: Analyst is measurement metadata about the name or identifier of a person that has the role of an analyst in the measurement.
+        submitter:
+          type: string
+          description: Submitter is measurement metadata about the name or identifier of a person that has the role of a submitter in the measurement.
+        device method identifier:
+          type: string
+          description: A device method identifier is an identifier that identifies the device method used in a measurement.
+        measurement aggregate document:
+          $ref: '#/components/schemas/measurementAggregateDocument'
+          description: A measurement aggregate document is a document about a collection of measurement documents.
+        diagnostic trace aggregate document:
+          $ref: '#/components/schemas/diagnosticTraceAggregateDocument'
+          description: A diagnostic trace aggregate document is a document that aggregates diagnostic trace documents.
+      required:
+        - analyst
+        - device method identifier
+        - measurement aggregate document
+
+    measurementAggregateDocument:
+      type: object
+      properties:
+        measurement document:
+          type: array
+          description: A measurement document is a document that encompasses the information associated with a measurement.
+          items:
+            $ref: '#/components/schemas/measurementDocument'
+      required:
+        - measurement document
+
+
+    measurementDocument:
+      type: object
+      properties:
+        detection type:
+          type: string
+          description: A detection type is a classification datum that classifies the type of detection performed by the detector.
+        measurement identifier:
+          type: string
+          description: Measurement id is measurement metadata that identifies the measuring run.
+        chromatogram data cube:
+          $ref: './datacube.yaml#/components/schemas/Datacube'
+          description: A chromatogram data cube is a data cube that represents a chromatogram.
+        chromatography column document:
+          $ref: '#/components/schemas/chromatographyColumnDocument'
+          description: A chromatography column document is a document that encompasses the information associated with a chromatography column.
+        injection document:
+          type: array
+          description: An injection document is a document that encompasses the information associated with an injection.
+          items:
+            $ref: '#/components/schemas/injectionDocument'
+        device control aggregate document:
+          $ref: '#/components/schemas/deviceControlAggregateDocument'
+          description: A device control aggregate document is a document that aggregates device control documents.
+        sample document:
+          $ref: '#/components/schemas/sampleDocument'
+          description: A sample document is a document about a particular sample.
+        processed data aggregate document:
+          $ref: '#/components/schemas/processedDataAggregateDocument'
+          description: A processed data aggregate document is a document that aggregates processed data documents.
+      required:
+        - measurement identifier
+        - chromatogram data cube
+        - chromatography column document
+        - injection document
+        - device control aggregate document
+        - sample document
+
+
+    chromatographyColumnDocument:
+      type: object
+      properties:
+        chromatography column part number:
+          type: string
+          description: A column part number is a part number that denotes some class of chromatography columns.
+        chromatography column serial number:
+          type: string
+          description: A column serial number is an equipment serial number that identifies some chromatography column.
+        chromatography column length:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A chromatography column length (datum) is a length datum that quantifies the length of a chromatography column.
+        column inner diameter:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A column inner diameter (datum) is an inner diameter quantifies the inner diameter of a column.
+        chromatography column chemistry type:
+          type: string
+          description: A chromatography column chemistry type is a classification datum that classifies a chromatography column by the stationary phase and/or chromatographic packing used.
+        chromatography column particle size:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A chromatography column particle size is a particle size datum that quantifies the dimensions of packing particles in a chromatography column.
+        product manufacturer:
+          type: string
+          description: A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic).
+        chromatography column fill type:
+          type: string
+          format: uri
+          description: A chromatography column fill type is a classification datum that classifies a chromatography column by the form of the stationary phase in the column.
+      required:
+        - chromatography column serial number
+
+    injectionDocument:
+      type: object
+      properties:
+        injection identifier:
+          type: string
+        injection volume setting:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+        injection time:
+          type: string
+          format: date-time
+      required:
+        - injection identifier
+        - injection volume setting
+        - injection time
+
+    deviceControlAggregateDocument:
+      type: object
+      properties:
+        device control document:
+          type: array
+          description: A device control document is a document that encompasses the information associated with control of a device.
+          items:
+            $ref: '#/components/schemas/deviceControlDocument'
+      required:
+        - device control document
+
+    deviceControlDocument:
+      type: object
+      properties:
+        device type:
+          type: string
+          description: A device type is a classification datum that classifies the type of device used.
+        device identifier:
+          type: string
+          description: A device identifier is an identifier that identifies some device.
+        detection type:
+          type: string
+          description: A detection type is a classification datum that classifies the type of detection performed by the detector.
+        product manufacturer:
+          type: string
+          description: An equipment manufacturer is a symbol that denotes the entity manufacturing the equipment.
+        brand name:
+          type: string
+          description: A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark.
+        equipment serial number:
+          type: string
+          description: Equipment serial number is measurement metadata that identifies an equipment used in the measuring by its serial number.
+        model number:
+          type: string
+          description: A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class.
+        firmware version:
+          type: string
+          description: A firmware version is a version number that identifies the firmware of a device.
+        detector offset setting:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A detector offset setting is a detector setting parameter that adds the specified value to its output signal. It is often used to avoid negative signal values.
+        detector sampling rate setting:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A detector offset setting is a detector setting parameter that adds the specified value to its output signal. It is often used to avoid negative signal values.
+      required:
+        - device type
+
+    sampleDocument:
+      type: object
+      properties:
+        description:
+          type: string
+          description: A description is a proposition about an existing entity.
+        sample identifier:
+          type: string
+          description: Sample id is a measurement metadata that identifies a sample being measured.
+        batch identifier:
+          type: string
+          description: A batch identifier is an identifier that identifies a batch.
+        sample role type:
+          type: string
+          format: uri
+          description: A sample role type is a classification datum that classifies samples by the type of sample role in the experiment.
+        written name:
+          type: string
+          description: A textual entity that denotes a particular in reality.
+        sampling type:
+          type: string
+          description: A sampling type is a classification datum that classifies the type of sampling approach used to take a sample.
+      required:
+        - sample identifier
+
+    processedDataAggregateDocument:
+      type: object
+      properties:
+        processed data document:
+          type: array
+          description: A processed data document is a document that encompasses the output of some data processing operation.
+          items:
+            $ref: '#/components/schemas/processedDataDocument'
+
+    processedDataDocument:
+      type: object
+      properties:
+        peak list:
+          $ref: '#/components/schemas/peakList'
+          description: Collection of peaks or peak groups for a specific purpose.
+      required:
+        - peak list
+
+    peakList:
+      type: object
+      properties:
+        peak:
+          type: array
+          description: A peak is a data region containing a single local extremum in the dependent variable of the distribution function.
+          items:
+            $ref: '#/components/schemas/peak'
+      required:
+        - peak
+
+    peak:
+      type: object
+      properties:
+        identifier:
+          type: string
+          description: An identifier is a name that identifies (that is, labels the identity of) either a unique object or a unique class of objects.
+        written name:
+          type: string
+        peak width at 5 % of height:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: The peak width calculated at 5 % of its peak height.
+        peak width at baseline:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: The peak width determined at the baseline level. The peak tangents are drawn from the turning points of the leading and trailing edges. Then the points of intersection with the baseline are calculated. The distance between the two points of intersection is the baseline level width.
+        peak width at half height:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: The peak width calculated at half of the peak height.
+        peak height:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A peak facet that denotes the ordinate value of the peak extremum offset by the baseline ascribed to the peak.
+        asymmetry factor measured at 5 % height:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A quantitative asymmetry factor using 5% peak height.
+        statistical skew:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A quantitative asymmetry factor using the third statistical moment calculated from the peak.
+        number of theoretical plates by peak width at half height:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: The number of theoretical plates calculated based on the peak width measured at half height.
+        number of theoretical plates by tangent method:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: The number of theoretical plates calculated based on the peak width measured at the baseline.
+        retention time:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A chromatography peak facet that indicates the elapsed time between the injection of the sample and the maximum detector response attributed to the peak (analyte band).
+        peak area:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A peak facet that quantitates the area enclosed by a peak and the selected baseline.
+        peak start:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A peak facet that denotes the first value of the abscissa that belongs to the peak.
+        peak end:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A peak facet that denotes the last value of the abscissa that belongs to the peak.
+        capacity factor (chromatography):
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A chromatography peak facet that quantitates the time the sample component resides in the stationary phase relative to the time it resides in the mobile phase.
+        relative peak height:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A peak facet that denotes the height of the peak relative to some other peak or summation of peaks.
+        relative peak area:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A peak facet that denotes the area of the peak relative to some other peak or summation of peaks.
+        peak selectivity (chromatography):
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: A chromatography peak facet that denotes the ratio of the peak's capacity factor to that of another specified peak.
+        chromatographic peak resolution using baseline peak widths:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: Chromatographic peak resolution that is calculated by the USP <621> method using peak widths measured at the baseline.
+        chromatographic peak resolution using peak width at half height:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: Chromatographic peak resolution that is calculated using peak widths measured at the half height.
+        chromatographic peak resolution using statistical moments:
+          $ref: './common.yaml#/components/schemas/QuantityValue'
+          description: Chromatographic peak resolution that is calculated based on peak widths derived from the second statistical moment (peak variance).
+      required:
+        - retention time
+
+
+    diagnosticTraceAggregateDocument:
+      type: object
+      properties:
+        diagnosticTraceDocument:
+          $ref: '#/components/schemas/diagnosticTraceDocument'
+          description: A processed data document is a document that encompasses the output of some data processing operation.
+      required:
+        - diagnostic trace document
+
+    diagnosticTraceDocument:
+      type: object
+      properties:
+        description:
+          type: string
+          description: A description is a proposition about an existing entity.
+        data cube:
+          $ref: './datacube.yaml#/components/schemas/Datacube'
+          description: Represents a collection of observations, possibly organized into various slices, conforming to some common dimensional structure.
+      required:
+        - description

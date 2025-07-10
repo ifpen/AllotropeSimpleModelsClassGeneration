@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: ASM common schemas
+  version: 2025-03
+
+components:
+  schemas:
+    QuantityValue:
+      type: object
+      properties:
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
