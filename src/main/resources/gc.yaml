@@ -131,7 +131,26 @@ components:
           type: string
           description: Measurement id is measurement metadata that identifies the measuring run.
         chromatogram data cube:
-          $ref: './datacube.yaml#/components/schemas/Datacube'
+          allOf:
+            - $ref: './datacube.yaml#/components/schemas/Datacube'
+            - type: object
+              properties:
+                DatacubeStructure:
+                  type: object
+                  properties:
+                    dimensions:
+                      type: array
+                      items:
+                        allOf:
+                          - $ref: './datacube.yaml#/components/schemas/datacubeComponent'
+                          - type: object
+                            properties:
+                              concept:
+                                type: string
+                                enum: [ "retention time" ]
+                              unit:
+                                type: string
+                                enum: [ "s" ]
           description: A chromatogram data cube is a data cube that represents a chromatogram.
         chromatography column document:
           $ref: '#/components/schemas/chromatographyColumnDocument'
@@ -169,16 +188,16 @@ components:
           type: string
           description: A column serial number is an equipment serial number that identifies some chromatography column.
         chromatography column length:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/MetersQuantityValue'
           description: A chromatography column length (datum) is a length datum that quantifies the length of a chromatography column.
         column inner diameter:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/MetersQuantityValue'
           description: A column inner diameter (datum) is an inner diameter quantifies the inner diameter of a column.
         chromatography column chemistry type:
           type: string
           description: A chromatography column chemistry type is a classification datum that classifies a chromatography column by the stationary phase and/or chromatographic packing used.
         chromatography column particle size:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/MicrometersQuantityValue'
           description: A chromatography column particle size is a particle size datum that quantifies the dimensions of packing particles in a chromatography column.
         product manufacturer:
           type: string
@@ -196,7 +215,7 @@ components:
         injection identifier:
           type: string
         injection volume setting:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/MicrometersQuantityValue'
         injection time:
           type: string
           format: date-time
@@ -247,7 +266,7 @@ components:
           $ref: './common.yaml#/components/schemas/QuantityValue'
           description: A detector offset setting is a detector setting parameter that adds the specified value to its output signal. It is often used to avoid negative signal values.
         detector sampling rate setting:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/HertzQuantityValue'
           description: A detector offset setting is a detector setting parameter that adds the specified value to its output signal. It is often used to avoid negative signal values.
       required:
         - device type
@@ -315,61 +334,61 @@ components:
         written name:
           type: string
         peak width at 5 % of height:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/SecondsQuantityValue'
           description: The peak width calculated at 5 % of its peak height.
         peak width at baseline:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/SecondsQuantityValue'
           description: The peak width determined at the baseline level. The peak tangents are drawn from the turning points of the leading and trailing edges. Then the points of intersection with the baseline are calculated. The distance between the two points of intersection is the baseline level width.
         peak width at half height:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/SecondsQuantityValue'
           description: The peak width calculated at half of the peak height.
         peak height:
           $ref: './common.yaml#/components/schemas/QuantityValue'
           description: A peak facet that denotes the ordinate value of the peak extremum offset by the baseline ascribed to the peak.
         asymmetry factor measured at 5 % height:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: A quantitative asymmetry factor using 5% peak height.
         statistical skew:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: A quantitative asymmetry factor using the third statistical moment calculated from the peak.
         number of theoretical plates by peak width at half height:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: The number of theoretical plates calculated based on the peak width measured at half height.
         number of theoretical plates by tangent method:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: The number of theoretical plates calculated based on the peak width measured at the baseline.
         retention time:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/SecondsQuantityValue'
           description: A chromatography peak facet that indicates the elapsed time between the injection of the sample and the maximum detector response attributed to the peak (analyte band).
         peak area:
           $ref: './common.yaml#/components/schemas/QuantityValue'
           description: A peak facet that quantitates the area enclosed by a peak and the selected baseline.
         peak start:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/SecondsQuantityValue'
           description: A peak facet that denotes the first value of the abscissa that belongs to the peak.
         peak end:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/SecondsQuantityValue'
           description: A peak facet that denotes the last value of the abscissa that belongs to the peak.
         capacity factor (chromatography):
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: A chromatography peak facet that quantitates the time the sample component resides in the stationary phase relative to the time it resides in the mobile phase.
         relative peak height:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/PercentQuantityValue'
           description: A peak facet that denotes the height of the peak relative to some other peak or summation of peaks.
         relative peak area:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/PercentQuantityValue'
           description: A peak facet that denotes the area of the peak relative to some other peak or summation of peaks.
         peak selectivity (chromatography):
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: A chromatography peak facet that denotes the ratio of the peak's capacity factor to that of another specified peak.
         chromatographic peak resolution using baseline peak widths:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: Chromatographic peak resolution that is calculated by the USP <621> method using peak widths measured at the baseline.
         chromatographic peak resolution using peak width at half height:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: Chromatographic peak resolution that is calculated using peak widths measured at the half height.
         chromatographic peak resolution using statistical moments:
-          $ref: './common.yaml#/components/schemas/QuantityValue'
+          $ref: './common.yaml#/components/schemas/UnitlessQuantityValue'
           description: Chromatographic peak resolution that is calculated based on peak widths derived from the second statistical moment (peak variance).
       required:
         - retention time

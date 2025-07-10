@@ -13,3 +13,69 @@ components:
           format: double
         unit:
           type: string
+      required:
+        - unit
+        - value
+
+    MetersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: ["m"]
+
+    MicrometersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: ["µm"]
+
+    SecondsQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: ["s"]
+
+    MicroLiterQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "µL" ]
+
+    HertzQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "Hz" ]
+
+    UnitlessQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "(unitless)" ]
+
+    PercentQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "%" ]

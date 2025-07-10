@@ -42,9 +42,7 @@
             <plugin>
                 <groupId>org.openapitools</groupId>
                 <artifactId>openapi-generator-maven-plugin</artifactId>
-                <!-- RELEASE_VERSION -->
                 <version>7.14.0-SNAPSHOT</version>
-                <!-- /RELEASE_VERSION -->
                 <executions>
                     <execution>
                         <id>generate-java</id>
@@ -54,9 +52,23 @@
                         <configuration>
                             <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
                             <generatorName>java</generatorName>
+                            <output>${project.build.directory}/generated-sources/java</output>
                             <configOptions>
-                                <sourceFolder>src/gen/java/main</sourceFolder>
+                                <groupId>fr.ifpen.allotropeconverters</groupId>
+                                <artifactId>allotrope-models</artifactId>
+                                <licenseName>CeCILL, version 2.1</licenseName>
+                                <licenseUrl>https://opensource.org/license/cecill-2-1/</licenseUrl>
+                                <developerName>Maxime Visconte</developerName>
+                                <developerEmail>maxime.visconte@ifpen.fr</developerEmail>
+                                <developerOrganization>IFPEN</developerOrganization>
+                                <developerOrganizationUrl>https://www.ifpenergiesnouvelles.com/</developerOrganizationUrl>
+                                <scmConnection>scm:git:git://github.com/ifpen/AllotropeSimpleModelsClassGeneration.git</scmConnection>
+                                <scmDeveloperConnection>scm:git:ssh://github.com/ifpen/AllotropeSimpleModelsClassGeneration.git</scmDeveloperConnection>
+                                <scmUrl>https://github.com/ifpen/AllotropeSimpleModelsClassGeneration</scmUrl>
                             </configOptions>
+                            <globalProperties>
+                                <models />
+                            </globalProperties>
                         </configuration>
                     </execution>
                     <execution>
@@ -68,9 +80,23 @@
                             <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
                             <generatorName>python</generatorName>
                             <output>${project.build.directory}/generated-sources/python</output>
-                            <configOptions>
-                                <packageName>my_python_client</packageName>
-                            </configOptions>
+                            <globalProperties>
+                                <models />
+                            </globalProperties>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-typescript</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
+                            <generatorName>typescript</generatorName>
+                            <output>${project.build.directory}/generated-sources/typescript</output>
+                            <globalProperties>
+                                <models />
+                            </globalProperties>
                         </configuration>
                     </execution>
                 </executions>
