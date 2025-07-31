@@ -27,8 +27,11 @@ jobs:
       - name: Build project (generate sources)
         run: mvn generate-sources
 
+      - name: Install xmlstarlet
+        run: sudo apt-get update && sudo apt-get install -y xmlstarlet
+
       - name: Patch pom.xml with distributionManagement
-        run: bash ./scripts/patch-pom.sh target/generated-sources/java/pom.xml
+        run: bash ./scripts/patch-pom.sh
 
       - name: Deploy to Maven Central
         env:
