@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eux
 
 POM="target/generated-sources/java/pom.xml"
 
