@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -e
 
 POM="target/generated-sources/java/pom.xml"
 
@@ -8,14 +8,20 @@ if [ ! -f "$POM" ]; then
   exit 1
 fi
 
+# Vérifier si distributionManagement est déjà présent
 if grep -q "<distributionManagement>" "$POM"; then
   echo "distributionManagement déjà présent dans $POM, rien à faire."
   exit 0
 fi
 
-# Création d'un fichier temporaire contenant la section à injecter
-TMPFILE=$(mktemp)
-cat > "$TMPFILE" <<EOF
+# Créer un fichier temporaire
+TMP_FILE=$(mktemp)
+
+# Copier tout sauf la dernière ligne (</project>)
+head -n -1 "$POM" > "$TMP_FILE"
+
+# Ajouter le bloc distributionManagement
+cat >> "$TMP_FILE" <<EOF
   <distributionManagement>
     <repository>
       <id>ossrh</id>
@@ -30,12 +36,10 @@ cat > "$TMPFILE" <<EOF
   </distributionManagement>
 EOF
 
-# On insère le contenu du fichier temporaire avant </project>
-# La commande sed utilise r (read) pour insérer le fichier
-sed -i "/<\/project>/ {
-  r $TMPFILE
-}" "$POM"
+# Réajouter la balise fermante </project>
+echo "</project>" >> "$TMP_FILE"
 
-rm "$TMPFILE"
+# Remplacer l'ancien POM
+mv "$TMP_FILE" "$POM"
 
-echo "Section distributionManagement injectée dans $POM"
+echo "✅ Section distributionManagement injectée proprement dans $POM"
