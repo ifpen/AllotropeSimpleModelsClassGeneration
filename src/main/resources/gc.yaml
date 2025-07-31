@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ASM Gas-Chromatography Schemas
-  version: 2025-04
+  version: 2025-05
 
 components:
   schemas:
@@ -131,26 +131,7 @@ components:
           type: string
           description: Measurement id is measurement metadata that identifies the measuring run.
         chromatogram data cube:
-          allOf:
-            - $ref: './datacube.yaml#/components/schemas/Datacube'
-            - type: object
-              properties:
-                DatacubeStructure:
-                  type: object
-                  properties:
-                    dimensions:
-                      type: array
-                      items:
-                        allOf:
-                          - $ref: './datacube.yaml#/components/schemas/datacubeComponent'
-                          - type: object
-                            properties:
-                              concept:
-                                type: string
-                                enum: [ "retention time" ]
-                              unit:
-                                type: string
-                                enum: [ "s" ]
+          $ref: '#/components/schemas/ChromatogramDataCube'
           description: A chromatogram data cube is a data cube that represents a chromatogram.
         chromatography column document:
           $ref: '#/components/schemas/chromatographyColumnDocument'
@@ -414,3 +395,36 @@ components:
           description: Represents a collection of observations, possibly organized into various slices, conforming to some common dimensional structure.
       required:
         - description
+
+    ChromatogramDataCube:
+      type: object
+      properties:
+        label:
+          type: string
+        DatacubeStructure:
+          $ref: '#/components/schemas/ChromatogramDatacubeStructure'
+        DatacubeData:
+          $ref: './datacube.yaml#/components/schemas/datacubeData'
+
+    ChromatogramDatacubeStructure:
+      type: object
+      properties:
+        dimensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChromatogramDimension'
+        measures:
+          $ref: './datacube.yaml#/components/schemas/datacubeStructure/properties/measures'
+
+    ChromatogramDimension:
+      allOf:
+        - $ref: './datacube.yaml#/components/schemas/datacubeComponent'
+        - type: object
+          properties:
+            concept:
+              type: string
+              enum: [ "retention time" ]
+            unit:
+              type: string
+              enum: [ "s" ]
+
