@@ -43,6 +43,6 @@ jobs:
           cd target/generated-sources/java
           mvn deploy -Psign-artifacts \
             -Dgpg.passphrase="${GPG_PASSPHRASE}" \
-            -Dossrh.username="${OSSRH_USERNAME}" \
-            -Dossrh.password="${OSSRH_PASSWORD}" \
+            -Dossrh.username="${MAVEN_USERNAME}" \
+            -Dossrh.password="${MAVEN_PASSWORD}" \
             --settings ${{ github.workspace }}/.github/maven/settings.xml
