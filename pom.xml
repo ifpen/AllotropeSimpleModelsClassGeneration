@@ -53,6 +53,7 @@
                             <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
                             <generatorName>java</generatorName>
                             <output>${project.build.directory}/generated-sources/java</output>
+                            <modelPackage>fr.ifpen.allotropeconverters.allotrope-models</modelPackage>
                             <configOptions>
                                 <groupId>fr.ifpen.allotropeconverters</groupId>
                                 <artifactId>allotrope-models</artifactId>
