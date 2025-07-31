@@ -22,7 +22,7 @@ jobs:
           settings-path: ${{ github.workspace }}/.github/maven
 
       - name: Build project (generate sources)
-        run: mvn compile
+        run: mvn generate-sources
 
       - name: Patch pom.xml with distributionManagement
         run: bash ./scripts/patch-pom.sh target/generated-sources/java/pom.xml
