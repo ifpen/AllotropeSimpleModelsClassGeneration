@@ -13,7 +13,9 @@ if grep -q "<distributionManagement>" "$POM"; then
   exit 0
 fi
 
-DIST_MGMT='
+# Création d'un fichier temporaire contenant la section à injecter
+TMPFILE=$(mktemp)
+cat > "$TMPFILE" <<EOF
   <distributionManagement>
     <repository>
       <id>ossrh</id>
@@ -26,8 +28,14 @@ DIST_MGMT='
       <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
     </snapshotRepository>
   </distributionManagement>
-'
+EOF
 
-sed -i "/<\/project>/ i $DIST_MGMT" "$POM"
+# On insère le contenu du fichier temporaire avant </project>
+# La commande sed utilise r (read) pour insérer le fichier
+sed -i "/<\/project>/ {
+  r $TMPFILE
+}" "$POM"
+
+rm "$TMPFILE"
 
 echo "Section distributionManagement injectée dans $POM"
