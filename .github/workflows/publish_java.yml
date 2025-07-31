@@ -1,7 +1,6 @@
 name: Maven Deploy to Maven Central
 
 on:
-  workflow_dispatch
   push:
     branches:
       - main  # adapte selon ta branche de release
