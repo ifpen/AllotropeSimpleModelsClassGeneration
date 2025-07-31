@@ -1,0 +1,48 @@
+name: Maven Deploy to Maven Central
+
+on:
+  push:
+    branches:
+      - main  # adapte selon ta branche de release
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          server-id: ossrh
+          settings-path: ${{ github.workspace }}/.github/maven
+
+      - name: Build project (generate sources)
+        run: mvn compile
+
+      - name: Patch pom.xml with distributionManagement
+        run: bash ./scripts/patch-pom.sh target/generated-sources/java/pom.xml
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          export GPG_TTY=$(tty)
+
+      - name: Deploy to Maven Central
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          cd target/generated-sources/java
+          mvn deploy -Psign-artifacts \
+            -Dgpg.passphrase="${GPG_PASSPHRASE}" \
+            -Dossrh.username="${OSSRH_USERNAME}" \
+            -Dossrh.password="${OSSRH_PASSWORD}" \
+            --settings ${{ github.workspace }}/.github/maven/settings.xml
