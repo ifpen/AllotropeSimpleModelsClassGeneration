@@ -41,3 +41,4 @@ jobs:
         run: |
           cd target/generated-sources/java
           mvn clean deploy -Psign-artifacts
+          
