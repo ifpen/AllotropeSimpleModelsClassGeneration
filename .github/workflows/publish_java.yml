@@ -27,11 +27,11 @@ jobs:
       - name: Build project (generate sources)
         run: mvn generate-sources
 
-      - name: Install xmlstarlet
-        run: sudo apt-get update && sudo apt-get install -y xmlstarlet
+      - name: Install Python dependencies
+        run: pip install lxml
 
-      - name: Patch pom.xml with distributionManagement
-        run: bash ./scripts/patch-pom.sh
+      - name: Patch pom.xml
+        run: python3 scripts/patch_pom.py
 
       - name: Deploy to Maven Central
         env:
@@ -40,4 +40,4 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           cd target/generated-sources/java
-          mvn -U -B clean deploy
+          mvn -U -B clean deploy -P release
