@@ -37,4 +37,4 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           cd target/generated-sources/java
-          mvn -U -B clean deploy -P release
+          mvn -U -B clean deploy
