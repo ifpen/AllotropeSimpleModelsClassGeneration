@@ -8,14 +8,12 @@ if [ ! -f "$POM" ]; then
   exit 1
 fi
 
-# Vérifier si distributionManagement est déjà présent
 if grep -q "<distributionManagement>" "$POM"; then
   echo "distributionManagement déjà présent dans $POM, rien à faire."
   exit 0
 fi
 
-# Section distributionManagement à injecter
-read -r -d '' DIST_MGMT << 'EOF'
+DIST_MGMT='
   <distributionManagement>
     <repository>
       <id>ossrh</id>
@@ -28,9 +26,8 @@ read -r -d '' DIST_MGMT << 'EOF'
       <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
     </snapshotRepository>
   </distributionManagement>
-EOF
+'
 
-# Injecter avant la dernière balise </project>
 sed -i "/<\/project>/ i $DIST_MGMT" "$POM"
 
 echo "Section distributionManagement injectée dans $POM"
