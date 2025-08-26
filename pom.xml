@@ -42,7 +42,7 @@
             <plugin>
                 <groupId>org.openapitools</groupId>
                 <artifactId>openapi-generator-maven-plugin</artifactId>
-                <version>7.14.0-SNAPSHOT</version>
+                <version>7.15.0</version>
                 <executions>
                     <execution>
                         <id>generate-java</id>
