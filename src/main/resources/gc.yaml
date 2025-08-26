@@ -1,10 +1,21 @@
 openapi: 3.1.0
 info:
   title: ASM Gas-Chromatography Schemas
-  version: 2025-05
+  version: 2025-06.02
 
 components:
   schemas:
+    gasChromatographySimpleModel:
+      type: object
+      properties:
+        gas chromatography aggregate document:
+          $ref: '#/components/schemas/gasChromatographyAggregateDocument'
+        "$asm.manifest":
+          type: string
+          enum:
+          - "http://purl.allotrope.org/manifests/gas-chromatography/REC/2025/06/gas-chromatography.tabular.manifest"
+          default: "http://purl.allotrope.org/manifests/gas-chromatography/REC/2025/06/gas-chromatography.tabular.manifest"
+
     gasChromatographyAggregateDocument:
       type: object
       properties:
@@ -137,10 +148,8 @@ components:
           $ref: '#/components/schemas/chromatographyColumnDocument'
           description: A chromatography column document is a document that encompasses the information associated with a chromatography column.
         injection document:
-          type: array
+          $ref: '#/components/schemas/injectionDocument'
           description: An injection document is a document that encompasses the information associated with an injection.
-          items:
-            $ref: '#/components/schemas/injectionDocument'
         device control aggregate document:
           $ref: '#/components/schemas/deviceControlAggregateDocument'
           description: A device control aggregate document is a document that aggregates device control documents.
@@ -172,7 +181,7 @@ components:
           $ref: './common.yaml#/components/schemas/MetersQuantityValue'
           description: A chromatography column length (datum) is a length datum that quantifies the length of a chromatography column.
         column inner diameter:
-          $ref: './common.yaml#/components/schemas/MetersQuantityValue'
+          $ref: './common.yaml#/components/schemas/MillimetersQuantityValue'
           description: A column inner diameter (datum) is an inner diameter quantifies the inner diameter of a column.
         chromatography column chemistry type:
           type: string
@@ -196,7 +205,7 @@ components:
         injection identifier:
           type: string
         injection volume setting:
-          $ref: './common.yaml#/components/schemas/MicrometersQuantityValue'
+          $ref: './common.yaml#/components/schemas/MicrolitersQuantityValue'
         injection time:
           type: string
           format: date-time
@@ -204,6 +213,7 @@ components:
         - injection identifier
         - injection volume setting
         - injection time
+
 
     deviceControlAggregateDocument:
       type: object
@@ -404,7 +414,7 @@ components:
         DatacubeStructure:
           $ref: '#/components/schemas/ChromatogramDatacubeStructure'
         DatacubeData:
-          $ref: './datacube.yaml#/components/schemas/datacubeData'
+          $ref: '#/components/schemas/DatacubeData'
 
     ChromatogramDatacubeStructure:
       type: object
@@ -414,7 +424,9 @@ components:
           items:
             $ref: '#/components/schemas/ChromatogramDimension'
         measures:
-          $ref: './datacube.yaml#/components/schemas/datacubeStructure/properties/measures'
+          type: array
+          items:
+            $ref: '#/components/schemas/ChromatogramMeasure'
 
     ChromatogramDimension:
       allOf:
@@ -428,3 +440,14 @@ components:
               type: string
               enum: [ "s" ]
 
+    ChromatogramMeasure:
+      allOf:
+        - $ref: './datacube.yaml#/components/schemas/datacubeComponent'
+        - type: object
+          properties:
+            componentDataType:
+              type: string
+              enum: ["DOUBLE"]
+
+    DatacubeData:
+      $ref: './datacube.yaml#/components/schemas/datacubeData'

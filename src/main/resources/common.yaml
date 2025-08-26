@@ -26,6 +26,14 @@ components:
               type: string
               enum: ["m"]
 
+    MillimetersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: ["mm"]
     MicrometersQuantityValue:
       allOf:
         - $ref: '#/components/schemas/QuantityValue'
@@ -44,14 +52,16 @@ components:
               type: string
               enum: ["s"]
 
-    MicroLiterQuantityValue:
+    MicrolitersQuantityValue:
       allOf:
         - $ref: '#/components/schemas/QuantityValue'
         - type: object
           properties:
             unit:
               type: string
-              enum: [ "µL" ]
+              enum: [ "μL" ]
+              x-enum-varnames: [ Micro_L ]
+              x-enum-values: [ "\u03BCL" ]
 
     HertzQuantityValue:
       allOf:

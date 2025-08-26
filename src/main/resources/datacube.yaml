@@ -20,10 +20,12 @@ components:
       properties:
         dimensions:
           type: array
-          $ref: '#/components/schemas/datacubeComponent'
+          items:
+            $ref: '#/components/schemas/datacubeComponent'
         measures:
           type: array
-          $ref: '#/components/schemas/datacubeComponent'
+          items:
+            $ref: '#/components/schemas/datacubeComponent'
 
     datacubeComponent:
         type: object

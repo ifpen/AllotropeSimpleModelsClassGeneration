@@ -66,10 +66,10 @@
                                 <scmConnection>scm:git:git://github.com/ifpen/AllotropeSimpleModelsClassGeneration.git</scmConnection>
                                 <scmDeveloperConnection>scm:git:ssh://github.com/ifpen/AllotropeSimpleModelsClassGeneration.git</scmDeveloperConnection>
                                 <scmUrl>https://github.com/ifpen/AllotropeSimpleModelsClassGeneration</scmUrl>
+                                <serializationLibrary>jackson</serializationLibrary>
+                                <library>native</library>
                             </configOptions>
-                            <globalProperties>
-                                <models />
-                            </globalProperties>
+                            <generateApis>false</generateApis>
                         </configuration>
                     </execution>
                     <execution>
