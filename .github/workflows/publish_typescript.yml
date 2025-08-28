@@ -1,7 +1,6 @@
 name: publish_typescript.yml
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
 
 jobs:
   deploy:

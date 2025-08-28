@@ -1,8 +1,7 @@
 name: Maven Deploy to Maven Central
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
 
 jobs:
   deploy:
