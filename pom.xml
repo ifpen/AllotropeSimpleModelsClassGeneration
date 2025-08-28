@@ -93,11 +93,16 @@
                         </goals>
                         <configuration>
                             <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
-                            <generatorName>typescript</generatorName>
+                            <generatorName>typescript-angular</generatorName>
                             <output>${project.build.directory}/generated-sources/typescript</output>
-                            <globalProperties>
-                                <models />
-                            </globalProperties>
+                            <generateApis>false</generateApis>
+                            <gitHost>github.com</gitHost>
+                            <gitUserId>ifpen</gitUserId>
+                            <gitRepoId>AllotropeSimpleModelsClassGeneration</gitRepoId>
+                            <configOptions>
+                                <licenseName>CeCILL, version 2.1</licenseName>
+                                <npmName>@ifpen/allotrope-models</npmName>
+                            </configOptions>
                         </configuration>
                     </execution>
                 </executions>
