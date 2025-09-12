@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ASM Gas-Chromatography Schemas
-  version: 2025.06.02
+  version: 2025.06.03
 
 components:
   schemas:

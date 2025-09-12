@@ -102,6 +102,7 @@
                             <configOptions>
                                 <licenseName>CeCILL, version 2.1</licenseName>
                                 <npmName>@ifpen/allotrope-models</npmName>
+                                <ngVersion>19.0.0</ngVersion>
                             </configOptions>
                         </configuration>
                     </execution>
