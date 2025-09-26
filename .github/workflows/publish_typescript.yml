@@ -33,4 +33,4 @@ jobs:
         run: |
           npm install
           npm run build || echo "No build script, skipping..."
-          npm publish dist --access public
+          npm publish ./dist --access public
