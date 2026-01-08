@@ -70,6 +70,7 @@
                                 <library>native</library>
                             </configOptions>
                             <generateApis>false</generateApis>
+                            <generateModelTests>false</generateModelTests>
                         </configuration>
                     </execution>
                     <execution>
@@ -96,6 +97,7 @@
                             <generatorName>typescript-angular</generatorName>
                             <output>${project.build.directory}/generated-sources/typescript</output>
                             <generateApis>false</generateApis>
+                            <generateModelTests>false</generateModelTests>
                             <gitHost>github.com</gitHost>
                             <gitUserId>ifpen</gitUserId>
                             <gitRepoId>AllotropeSimpleModelsClassGeneration</gitRepoId>
@@ -114,11 +116,12 @@
                             <generatorName>csharp</generatorName>
                             <output>${project.build.directory}/generated-sources/csharp</output>
                             <packageName>IFPEN.AllotropeConverters</packageName>
+                            <modelPackage>AllotropeModels</modelPackage>
                             <library>httpclient</library>
-
+                            <generateModelTests>false</generateModelTests>
                             <configOptions>
                                 <netCoreProjectFile>true</netCoreProjectFile>
-                                <targetFramework>netstandard2.0</targetFramework>
+                                <targetFramework>netstandard2.0;net48</targetFramework>
                                 <licenseId>CECILL-2.1</licenseId>
                             </configOptions>
 
