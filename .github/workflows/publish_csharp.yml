@@ -51,5 +51,5 @@ jobs:
 
       - name: Push to nuget.org
         run: |
-          dotnet nuget push "target/generated-sources/csharp/nupkg/*.nupkg" --api-key ${{ steps.nuget-login.outputs.nuget-api-key }} --source https://api.nuget.org/v3/index.json
+          dotnet nuget push "target/generated-sources/csharp/nupkg/*.nupkg" --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
