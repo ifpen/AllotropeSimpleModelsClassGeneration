@@ -34,10 +34,16 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: |
+          cd target/generated-sources/csharp/src/IFPEN.AllotropeConverters
+          dotnet build -c Release
+      
 
       - name: Pack
-        run: dotnet pack -c Release --no-build -o ./artifacts
+        run: |
+          cd target/generated-sources/csharp/src/IFPEN.AllotropeConverters
+          dotnet pack -c Release -o ../../nupkg
+
 
       - name: NuGet login (Trusted Publishing)
         uses: NuGet/login@v1
@@ -45,6 +51,7 @@ jobs:
 
       - name: Push to nuget.org
         run: |
-          dotnet nuget push "./artifacts/*.nupkg" \
-            --api-key ${{ steps.nuget-login.outputs.nuget-api-key }} \
-            --source https://api.nuget.org/v3/index.json
+          dotnet nuget push "target/generated-sources/csharp/nupkg/*.nupkg" \
+          --api-key ${{ steps.nuget-login.outputs.nuget-api-key }} \
+          --source https://api.nuget.org/v3/index.json
+
