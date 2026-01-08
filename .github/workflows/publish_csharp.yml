@@ -39,7 +39,7 @@ jobs:
       - name: Pack
         run: |
           cd target/generated-sources/csharp/src/IFPEN.AllotropeConverters
-          dotnet pack -c Release -o ../../nupkg
+          dotnet pack -c Release -o ../../nupkg /p:PackageId=IFPEN.AllotropeConverters.AllotropeModels
 
 
       - name: NuGet login (Trusted Publishing)
