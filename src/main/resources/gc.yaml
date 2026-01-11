@@ -8,6 +8,8 @@ info:
     They rely on the Allotrope Foundation ontologies and data models.
     
     The classes are generated from the YAML schemas using OpenAPI Generator.
+    
+    **Complete API Documentation**: [https://ifpen.github.io/AllotropeSimpleModelsClassGeneration/](https://ifpen.github.io/AllotropeSimpleModelsClassGeneration/)
 
 components:
   schemas:
