@@ -139,6 +139,7 @@
                             <gitUserId>ifpen</gitUserId>
                             <gitRepoId>AllotropeSimpleModelsClassGeneration</gitRepoId>
 
+                            <templateDirectory>${project.basedir}/src/main/resources/templates/csharp</templateDirectory>
                             <generateApis>false</generateApis>
                             <generateModels>true</generateModels>
                             <cleanupOutput>true</cleanupOutput>
