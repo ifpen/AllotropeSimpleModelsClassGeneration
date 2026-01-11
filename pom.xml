@@ -132,7 +132,7 @@
                                 <additionalProperty><![CDATA[packageDescription=Modèles C# Allotrope générés depuis gc.yaml]]></additionalProperty>
                                 <additionalProperty>packageTags=allotrope;models;chemistry;lab;data</additionalProperty>
                                 <additionalProperty>packageCopyright=Copyright © 2026 IFP Energies nouvelles (IFPEN)</additionalProperty>
-                                <additionalProperty>packageVersion=2025.06.04</additionalProperty>
+                                <additionalProperty>packageVersion=2025.06.05</additionalProperty>
                             </additionalProperties>
 
                             <gitHost>github.com</gitHost>
