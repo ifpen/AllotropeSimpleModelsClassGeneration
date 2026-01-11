@@ -1,0 +1,59 @@
+name: Publish Docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Generate Sources (and Docs)
+        run: mvn generate-sources
+
+      - name: Prepare Public Directory
+        run: |
+          mkdir -p public
+          mkdir -p public/csharp
+          mkdir -p public/java
+          mkdir -p public/typescript
+          mkdir -p public/python
+
+      - name: Copy C# Docs
+        run: cp -r target/generated-sources/csharp/docs/* public/csharp/ || echo "No C# docs found"
+
+      - name: Copy Java Docs
+        run: cp -r target/generated-sources/java/docs/* public/java/ || echo "No Java docs found"
+
+      - name: Copy TypeScript Docs
+        run: |
+          cp target/generated-sources/typescript/README.md public/typescript/index.md
+          # If there are other docs in typescript, copy them here
+      
+      - name: Copy Python Docs
+        run: |
+           cp -r target/generated-sources/python/docs/* public/python/ || echo "No Python docs found"
+           cp target/generated-sources/python/README.md public/python/index.md
+
+      - name: Copy Landing Page
+        run: cp src/main/resources/index.html public/index.html || echo "<h1>Documentation</h1><ul><li><a href='csharp/'>C#</a></li><li><a href='java/'>Java</a></li><li><a href='typescript/index.md'>TypeScript</a></li><li><a href='python/index.md'>Python</a></li></ul>" > public/index.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
