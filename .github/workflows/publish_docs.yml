@@ -34,7 +34,9 @@ jobs:
           mkdir -p public/python
 
       - name: Copy C# Docs
-        run: cp -r target/generated-sources/csharp/docs/* public/csharp/ || echo "No C# docs found"
+        run: |
+          cp -r target/generated-sources/csharp/docs/* public/csharp/ || echo "No C# docs found"
+          cp target/generated-sources/csharp/README.md public/csharp/README.md || echo "No C# README found"
 
       - name: Copy Java Docs
         run: cp -r target/generated-sources/java/docs/* public/java/ || echo "No Java docs found"
