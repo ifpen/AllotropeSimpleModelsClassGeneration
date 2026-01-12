@@ -36,11 +36,20 @@ jobs:
           dotnet build -c Release
       
 
+      - name: Add README to .csproj
+        run: |
+          CSPROJ="target/generated-sources/csharp/src/IFPEN.AllotropeConverters/IFPEN.AllotropeConverters.csproj"
+          
+          # Add PackageReadmeFile property before the closing </PropertyGroup>
+          sed -i '0,/<\/PropertyGroup>/s|<\/PropertyGroup>|    <PackageReadmeFile>README.md</PackageReadmeFile>\n  </PropertyGroup>|' "$CSPROJ"
+          
+          # Add ItemGroup with README.md before the closing </Project>
+          sed -i 's|</Project>|  <ItemGroup>\n    <None Include="..\\..\\README.md" Pack="true" PackagePath="\\" />\n  </ItemGroup>\n</Project>|' "$CSPROJ"
+
       - name: Pack
         run: |
-          cp target/generated-sources/csharp/README.md target/generated-sources/csharp/src/IFPEN.AllotropeConverters/README.md
           cd target/generated-sources/csharp/src/IFPEN.AllotropeConverters
-          dotnet pack -c Release -o ../../nupkg /p:PackageId=IFPEN.AllotropeConverters.AllotropeModels /p:PackageReadmeFile=README.md
+          dotnet pack -c Release -o ../../nupkg /p:PackageId=IFPEN.AllotropeConverters.AllotropeModels
 
 
       - name: NuGet login (Trusted Publishing)
