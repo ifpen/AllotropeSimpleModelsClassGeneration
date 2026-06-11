@@ -8,9 +8,12 @@ L'objectif est d'automatiser le traitement des modèles Allotrope (ASM) pour gé
 - **Génération de Modèles Uniquement :** L'objectif est de générer des classes de données (DTOs/POJOs). Tu ne dois **jamais** définir de `paths` ou de endpoints d'API dans les fichiers OpenAPI. Limite-toi exclusivement à la section `components/schemas`.
 - Élimine le "bruit" : Ne tente pas de traduire les constructions JSON Schema complexes (`anyOf`, `oneOf`, `allOf`) de manière littérale. Aplatit les structures lorsque c'est possible. Fuis l'utilisation du type `any` ou d'objets non typés.
 
-## 2. Orchestration et Build (Source Unique de Vérité)
-- **Maven comme chef d'orchestre :** Le fichier `pom.xml` gère l'intégralité du pipeline via `openapi-generator-maven-plugin` (v7.15.0+). 
-- **Commandes d'exécution :** Pour valider tes modifications et déclencher la génération du code pour tous les langages, utilise la commande `mvn clean generate-sources` ou `mvn clean compile` depuis la racine. Le code généré se trouvera dans `target/generated-sources/`.
+## 2. Orchestration et Build (Source Unique de Vérité et Économie de Tokens)
+- **Maven comme chef d'orchestre :** Le fichier `pom.xml` gère l'intégralité du pipeline via `openapi-generator-maven-plugin`. 
+- **Commandes d'exécution et protection du contexte :** La génération OpenAPI est extrêmement verbeuse. Pour ne pas saturer ta fenêtre de contexte (tokens), **redirige systématiquement la sortie standard vers un fichier**. Utilise la commande : 
+  `mvn clean generate-sources > build.log 2>&1`
+  **Ne lis le contenu de `build.log` que si la commande échoue** (code de retour différent de 0), et limite-toi aux dernières lignes ou fais un `grep` sur les `[ERROR]`. Le code généré se trouve dans `target/generated-sources/`.
+
 
 ## 3. Architecture des Fichiers OpenAPI (YAML) et Versionning
 Les fichiers OpenAPI doivent être placés dans `src/main/resources/` et suivre une logique stricte :
@@ -36,21 +39,26 @@ Les fichiers OpenAPI doivent être placés dans `src/main/resources/` et suivre 
 - **Python :** Génération de modèles Pydantic via le générateur `python`.
 - **TypeScript (Angular 19) :** Le générateur utilisé est `typescript-angular`. Génère un code propre, destiné au package NPM `@ifpen/allotrope-models`.
 
-## 7. Amélioration Continue et Mémoire de l'Agent
+## 7. IMMUTABILITÉ ABSOLUE ET ZÉRO EFFET DE BORD (RÈGLES DE FER)
+Tout modèle de donnée commité devient instantanément une API publique **immuable**. La rétrocompatibilité absolue prime sur l'esthétique, l'homogénéisation ou l'optimisation de l'architecture OpenAPI.
+- **Le verrouillage de l'existant :** Si une classe, un type ou un module a déjà été généré dans le passé (même avec un nom "par défaut" issu d'une génération automatique), ce nom est **DÉFINITIVEMENT VERROUILLÉ**.
+- **Interdiction des Mappings Rétroactifs :** Il t'est STRICTEMENT INTERDIT d'ajouter une configuration (ex: mappings dans le `pom.xml`) dans le but de renommer un modèle déjà existant.
+- **Le piège de l'écrasement des Index :** Ne multiplie pas les blocs `<execution>` dans le `pom.xml` pour générer plusieurs techniques (ex: `gc` et `dsc`) dans le même dossier de sortie. Les générateurs Python et TS vont s'écraser mutuellement les fichiers d'indexation partagés (comme `__init__.py` ou `index.ts`).
+- **L'Agrégation Maîtrisée :** La création d'un fichier maître (ex: `all_techniques.yaml`) qui importe les autres via `$ref` est autorisée pour contourner le problème d'écrasement. **Cependant**, tu es personnellement responsable de t'assurer que cette fusion ne provoque aucun renommage en cascade des classes existantes à cause des résolutions de noms par `openapi-generator`.
+- **Preuve de non-régression (Validation locale) :** Le dossier `target/` n'étant pas versionné par Git, tu ne peux pas faire de `git diff`. **La procédure obligatoire avant toute modification est la suivante :**
+  1. Génère l'existant (baseline) sur la branche propre via `mvn clean compile`.
+  2. Copie `target/generated-sources/` dans un dossier temporaire (ex: `/tmp/baseline`).
+  3. Fais tes modifications (ajout de `dsc.yaml`, création d'un master yaml, etc.) et recompile.
+  4. Compare l'ancien dossier et le nouveau avec une commande comme `diff -r /tmp/baseline target/generated-sources/`.
+  5. **Aucun** fichier des modèles existants ne doit avoir subi de modification (ni nom de classe, ni attributs).
+
+## 8. Amélioration Continue et Mémoire de l'Agent
 - **Loi de l'immuabilité :** Tu n'es pas autorisé à modifier, altérer ou supprimer les règles définies dans les sections 1 à 6 de ce fichier. Elles constituent la constitution de ce projet.
 - **Leçons Apprises :** Si tu découvres un contournement technique, une spécificité non documentée des schémas Allotrope (ex: gestion d'une clé JSON-LD particulière), ou une meilleure façon de configurer OpenAPI, tu dois documenter cette découverte pour tes futures interventions.
 - **Où documenter :** Ajoute tes découvertes à la fin de ce fichier, exclusivement dans la section `8. Leçons Apprises (Append Only)`. Tu ne peux faire que des ajouts (append) dans cette section spécifique.
 
-## 8. Leçons Apprises (Append Only)
+## 9. Leçons Apprises (Append Only)
 *(L'agent IA documentera ici ses futures découvertes techniques et cas particuliers)*
 
 - 2026-06-11 - Séparation stricte des modèles analytiques : chaque technique analytique (ex: GC, DSC) doit être décrite dans son propre fichier OpenAPI dédié (`gc.yaml`, `dsc.yaml`, etc.) sans jamais imbriquer les modèles d'une technique dans le fichier canonique d'une autre. Le recouvrement entre techniques différentes ne peut se faire qu'au niveau des briques communes (`common.yaml`, `datacube.yaml`).
 - 2026-06-11 - Vérification systématique de la génération multi-langage : une tâche n'est considérée comme terminée qu'après avoir vérifié explicitement que les classes sont générées dans tous les langages configurés (Java, Python, TypeScript) pour chaque nouveau fichier YAML introduit ou modifié. Cela implique de lancer `mvn clean generate-sources` et de contrôler la présence des classes dans `target/generated-sources/` pour chaque langage demandé.
-- 2026-06-11 - Génération unique par langage : pour éviter l'écrasement des fichiers de support (par exemple `__init__.py` en Python ou les index de modèles), l'openapi-generator ne doit être exécuté qu'une seule fois par langage et par sortie. Pour gérer plusieurs techniques analytiques dans un même artefact (Java, Python, TypeScript), utiliser un fichier OpenAPI agrégateur dédié à la génération (par exemple `all-techniques.yaml`) qui référence les fichiers canoniques (`gc.yaml`, `dsc.yaml`, etc.) sans modifier leur contenu ni leur rôle sémantique.
-- 2026-06-11 - Homogénéité inter-langages : les règles de nommage et la méthode de génération doivent rester homogènes entre tous les langages cibles (Java, Python, TypeScript). Les noms de modèles générés doivent rester alignés sur les identifiants de schémas OpenAPI (ou sur une même règle de transformation commune), et toute logique de raccourcissement/normalisation des noms (par exemple pour les schémas inline ou pour respecter des contraintes de longueur de chemin) doit être appliquée de manière cohérente dans chaque langage, en évitant des stratégies spécifiques à un seul langage qui rendraient les API de modèles difficilement comparables.
-- 2026-06-11 - IMMUTABILITÉ DES API PUBLIQUES (INTERDICTION ABSOLUE DE RENOMMAGE) :
-Tout modèle de donnée commité devient instantanément une API publique immuable. La rétrocompatibilité absolue prime sur l'esthétique ou l'homogénéisation du code.
-Règle d'or : Il t'est STRICTEMENT INTERDIT de renommer, de modifier la casse ou de supprimer une classe, un type ou un module déjà existant. Si un nom de classe existant est imparfait ou mal orthographié, il doit rester en l'état.
-Configuration OpenAPI en "Append-Only" : Toute modification de la configuration de nommage (ex: inlineSchemaNameMappings, modelNameMappings dans le pom.xml ou OpenAPI) doit se faire uniquement par ajout. Tu n'as JAMAIS le droit de modifier ou de supprimer un mapping existant.
-Interdiction de Refactoring : Ne tente jamais d'harmoniser les noms de classes d'anciennes spécifications pour les faire correspondre à de nouvelles.
-Versions : Le bump de version (YYYY.MM.x) est réservé aux corrections de bugs internes ou à l'ajout de nouveaux modèles. Il ne doit jamais être utilisé comme excuse pour justifier un renommage de classe (Breaking Change).
