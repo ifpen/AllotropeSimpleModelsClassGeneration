@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "allotrope-gen"
+version = "1.0.0"
+description = "Multi-language code-generation pipeline for Allotrope Simple Models"
+requires-python = ">=3.12"
+license = { text = "CeCILL-2.1" }
+dependencies = ["pyyaml"]
+
+[project.scripts]
+allotrope-gen = "allotrope_gen.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["allotrope_gen*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["allotrope_gen"]
+omit   = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
