@@ -1,0 +1,220 @@
+name: Generate and publish Allotrope models
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/main/resources/**.yaml'
+      - 'generate.py'
+      - 'allotrope_gen/**'
+      - 'pyproject.toml'
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: 'Specs to generate (space-separated, empty = all)'
+        required: false
+        default: ''
+      langs:
+        description: 'Languages to generate (space-separated, empty = all)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Dry run (print commands only)'
+        type: boolean
+        default: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    outputs:
+      # Pass the matrix of generated (spec, lang) pairs to publish jobs
+      specs: ${{ steps.set-matrix.outputs.specs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install openapi-generator-cli
+        run: npm install -g @openapitools/openapi-generator-cli
+
+      - name: Install Python dependencies
+        run: pip install pyyaml
+
+      - name: Build generate.py args
+        id: build-args
+        run: |
+          ARGS=""
+          [ -n "${{ github.event.inputs.specs }}" ]    && ARGS="$ARGS --specs ${{ github.event.inputs.specs }}"
+          [ -n "${{ github.event.inputs.langs }}" ]    && ARGS="$ARGS --langs ${{ github.event.inputs.langs }}"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
+          echo "args=$ARGS" >> $GITHUB_OUTPUT
+
+      - name: Generate all models
+        run: python generate.py ${{ steps.build-args.outputs.args }}
+
+      - name: Upload generated sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-sources
+          path: target/generated-sources/
+          retention-days: 1
+
+  # --------------------------------------------------------------------------
+  # Java — one publish per generated module (commons + each spec)
+  # --------------------------------------------------------------------------
+  publish-java:
+    needs: generate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [commons, gc]   # keep in sync with SPECS in allotrope_gen/config.py
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-sources
+          path: target/generated-sources/
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: GPG_PASSPHRASE
+
+      - name: Publish ${{ matrix.module }} to Maven Central
+        working-directory: target/generated-sources/${{ matrix.module }}/java
+        run: mvn --batch-mode deploy -P release
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+  # --------------------------------------------------------------------------
+  # npm (TypeScript) — commons first, then specs in parallel
+  # --------------------------------------------------------------------------
+  publish-npm-commons:
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-sources
+          path: target/generated-sources/
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish commons to npm
+        working-directory: target/generated-sources/commons/typescript/common
+        run: |
+          npm install
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-npm-specs:
+    needs: publish-npm-commons   # commons must exist before specs that depend on it
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        spec: [gc]               # keep in sync with SPECS in allotrope_gen/config.py
+      fail-fast: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-sources
+          path: target/generated-sources/
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish ${{ matrix.spec }} to npm
+        working-directory: target/generated-sources/${{ matrix.spec }}/typescript
+        run: |
+          npm install
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # --------------------------------------------------------------------------
+  # NuGet (C#)
+  # --------------------------------------------------------------------------
+  publish-nuget:
+    needs: generate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [commons, gc]
+      fail-fast: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-sources
+          path: target/generated-sources/
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Pack and publish ${{ matrix.module }} to NuGet
+        working-directory: target/generated-sources/${{ matrix.module }}/csharp
+        run: |
+          dotnet build --configuration Release
+          dotnet pack --configuration Release --no-build
+          dotnet nuget push **/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+  # --------------------------------------------------------------------------
+  # PyPI (Python)
+  # --------------------------------------------------------------------------
+  publish-pypi:
+    needs: generate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [commons, gc]
+      fail-fast: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-sources
+          path: target/generated-sources/
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Publish ${{ matrix.module }} to PyPI
+        working-directory: target/generated-sources/${{ matrix.module }}/python
+        run: |
+          pip install build twine
+          python -m build
+          twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
