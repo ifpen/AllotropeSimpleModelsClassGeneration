@@ -1,64 +1,317 @@
-# Fichier de Configuration de l'Agent (AGENT.md) - Projet AllotropeSimpleModelsClassGeneration
+# AGENTS.md — AI Agent Guide
 
-Ce document définit les directives, le workflow et les standards de qualité que tout agent de codage IA doit respecter lors de ses interventions sur ce dépôt.
+This file provides authoritative guidance for AI agents (Copilot, Antigravity, Cursor, etc.)
+working in this repository. Read it fully before making any changes.
 
-## 1. Rôle et Philosophie du Projet (Simplification Extrême)
-L'objectif est d'automatiser le traitement des modèles Allotrope (ASM) pour générer du code utilisable. 
-- **La Règle d'Or : Aller au plus simple.** Les schémas JSON originaux de l'ASM sont extrêmement complexes et verbeux. Ton rôle n'est pas de reproduire cette complexité dans OpenAPI, mais de l'éliminer. 
-- **Génération de Modèles Uniquement :** L'objectif est de générer des classes de données (DTOs/POJOs). Tu ne dois **jamais** définir de `paths` ou de endpoints d'API dans les fichiers OpenAPI. Limite-toi exclusivement à la section `components/schemas`.
-- Élimine le "bruit" : Ne tente pas de traduire les constructions JSON Schema complexes (`anyOf`, `oneOf`, `allOf`) de manière littérale. Aplatit les structures lorsque c'est possible. Fuis l'utilisation du type `any` ou d'objets non typés.
+---
 
-## 2. Orchestration et Build (Source Unique de Vérité et Économie de Tokens)
-- **Maven comme chef d'orchestre :** Le fichier `pom.xml` gère l'intégralité du pipeline via `openapi-generator-maven-plugin`. 
-- **Commandes d'exécution et protection du contexte :** La génération OpenAPI est extrêmement verbeuse. Pour ne pas saturer ta fenêtre de contexte (tokens), **redirige systématiquement la sortie standard vers un fichier**. Utilise la commande : 
-  `mvn clean generate-sources > build.log 2>&1`
-  **Ne lis le contenu de `build.log` que si la commande échoue** (code de retour différent de 0), et limite-toi aux dernières lignes ou fais un `grep` sur les `[ERROR]`. Le code généré se trouve dans `target/generated-sources/`.
+## Project Overview
 
+**Allotrope Simple Models Class Generation** is a multi-language code-generation pipeline
+maintained by [IFP Energies Nouvelles (IFPEN)](https://www.ifpenergiesnouvelles.com/).
 
-## 3. Architecture des Fichiers OpenAPI (YAML) et Versionning
-Les fichiers OpenAPI doivent être placés dans `src/main/resources/` et suivre une logique stricte :
-- **Modèle Canonique (`src/main/resources/gc.yaml`) :** Ce fichier incarne la philosophie de simplification du projet. Toute nouvelle technique analytique doit mimer sa structure épurée.
-- **Briques de Base :** Les fichiers `datacube.yaml` et `common.yaml` contiennent les composants fondamentaux. Maximise l'utilisation de ces briques via des références (`$ref`). Privilégie l'enrichissement de ces fichiers communs plutôt que de créer des structures isolées.
-- **Règle de Versionning (Crucial) :** La version de la spécification (champ `info.version` du YAML) est dictée par l'URL du schéma ASM d'origine (`$id`). 
-  - Tu dois extraire l'année et le mois depuis le chemin du schéma (format `.../REC/YYYY/MM/...`).
-  - La version OpenAPI doit être `YYYY.MM.x`, où `x` est le numéro de patch.
-  - *Exemple :* Pour `"http://purl.allotrope.org/.../REC/2025/06/..."`, la version est `2025.06.x`.
+It ingests **OpenAPI 3.1 YAML specifications** that describe
+[Allotrope Simple Models (ASM)](https://www.allotrope.org/asm) and emits idiomatic client
+libraries in four languages:
 
-## 4. Workflow et Contrôle de Version (Git)
-- Branches dédiées : Crée systématiquement une nouvelle branche au nom explicite pour chaque tâche. Ne travaille jamais sur la branche principale.
-- Commits Atomiques : Découpe ton travail en petits commits logiques et indépendants.
-- Règle anti-boucle : Si tu rencontres la même erreur de compilation ou de test plus de 3 fois consécutives, arrête tes tentatives, documente l'erreur et demande des instructions.
+| Language | Package registry | Package naming |
+|---|---|---|
+| Java | Maven Central | `fr.ifpen.allotropeconverters:allotrope-models-{spec}` |
+| TypeScript (Angular) | npm | `@ifpen/allotrope-models-{spec}` |
+| C# | NuGet | `IFPEN.AllotropeConverters.AllotropeModels.{Spec}` |
+| Python | PyPI | `ifpen.allotrope_models.{spec}` |
 
-## 5. Stratégie de Test et Validation
-- Périmètre de test : Concentre-toi sur la logique de réduction (JSON Schema -> OpenAPI) et la préparation du contexte.
-- Confiance dans openapi-generator : Ne crée pas de tests unitaires pour valider les méthodes générées automatiquement par le plugin.
-- Validation E2E : Le test type consiste à désérialiser un JSON ASM officiel avec les classes simples générées, puis à le ré-sérialiser pour prouver l'égalité structurelle stricte (aller-retour sans perte).
+The pipeline splits schemas into two layers:
 
-## 6. Standards Techniques par Langage (Cibles du pom.xml)
-- **Java (Java 17, mode 'native', Jackson) :** La gestion du temps est cruciale. Jackson doit utiliser `java.time` nativement, avec l'écriture des dates en timestamps désactivée.
-- **Python :** Génération de modèles Pydantic via le générateur `python`.
-- **TypeScript (Angular 19) :** Le générateur utilisé est `typescript-angular`. Génère un code propre, destiné au package NPM `@ifpen/allotrope-models`.
+- **Commons** — shared schemas defined in `common.yaml` / `datacube.yaml`; published once as
+  a base package (e.g. `allotrope-models-commons`).
+- **Instrument specs** — one YAML file per instrument type (e.g. `gc.yaml`); each spec
+  `$ref`s commons schemas via relative paths and is published as a separate package.
 
-## 7. IMMUTABILITÉ ABSOLUE ET ZÉRO EFFET DE BORD (RÈGLES DE FER)
-Tout modèle de donnée commité devient instantanément une API publique **immuable**. La rétrocompatibilité absolue prime sur l'esthétique, l'homogénéisation ou l'optimisation de l'architecture OpenAPI.
-- **Le verrouillage de l'existant :** Si une classe, un type ou un module a déjà été généré dans le passé (même avec un nom "par défaut" issu d'une génération automatique), ce nom est **DÉFINITIVEMENT VERROUILLÉ**.
-- **Interdiction des Mappings Rétroactifs :** Il t'est STRICTEMENT INTERDIT d'ajouter une configuration (ex: mappings dans le `pom.xml`) dans le but de renommer un modèle déjà existant.
-- **Le piège de l'écrasement des Index :** Ne multiplie pas les blocs `<execution>` dans le `pom.xml` pour générer plusieurs techniques (ex: `gc` et `dsc`) dans le même dossier de sortie. Les générateurs Python et TS vont s'écraser mutuellement les fichiers d'indexation partagés (comme `__init__.py` ou `index.ts`).
-- **L'Agrégation Maîtrisée :** La création d'un fichier maître (ex: `all_techniques.yaml`) qui importe les autres via `$ref` est autorisée pour contourner le problème d'écrasement. **Cependant**, tu es personnellement responsable de t'assurer que cette fusion ne provoque aucun renommage en cascade des classes existantes à cause des résolutions de noms par `openapi-generator`.
-- **Preuve de non-régression (Validation locale) :** Le dossier `target/` n'étant pas versionné par Git, tu ne peux pas faire de `git diff`. **La procédure obligatoire avant toute modification est la suivante :**
-  1. Génère l'existant (baseline) sur la branche propre via `mvn clean compile`.
-  2. Copie `target/generated-sources/` dans un dossier temporaire (ex: `/tmp/baseline`).
-  3. Fais tes modifications (ajout de `dsc.yaml`, création d'un master yaml, etc.) et recompile.
-  4. Compare l'ancien dossier et le nouveau avec une commande comme `diff -r /tmp/baseline target/generated-sources/`.
-  5. **Aucun** fichier des modèles existants ne doit avoir subi de modification (ni nom de classe, ni attributs).
+---
 
-## 8. Amélioration Continue et Mémoire de l'Agent
-- **Loi de l'immuabilité :** Tu n'es pas autorisé à modifier, altérer ou supprimer les règles définies dans les sections 1 à 6 de ce fichier. Elles constituent la constitution de ce projet.
-- **Leçons Apprises :** Si tu découvres un contournement technique, une spécificité non documentée des schémas Allotrope (ex: gestion d'une clé JSON-LD particulière), ou une meilleure façon de configurer OpenAPI, tu dois documenter cette découverte pour tes futures interventions.
-- **Où documenter :** Ajoute tes découvertes à la fin de ce fichier, exclusivement dans la section `8. Leçons Apprises (Append Only)`. Tu ne peux faire que des ajouts (append) dans cette section spécifique.
+## Repository Layout
 
-## 9. Leçons Apprises (Append Only)
-*(L'agent IA documentera ici ses futures découvertes techniques et cas particuliers)*
+```
+AllotropeSimpleModelsClassGeneration/
+├── generate.py                    # Thin CLI entry point
+├── pom.xml                        # Legacy Maven config (kept for reference; superseded by allotrope_gen)
+├── pyproject.toml                 # Package definition, metadata, and dependencies
+├── openapitools.json              # openapi-generator-cli version pin
+├── allotrope_gen/                 # Orchestration package
+│   ├── __init__.py                # Package version
+│   ├── cli.py                     # Argument parsing and main orchestrator
+│   ├── command.py                 # Command generator arguments builder
+│   ├── config.py                  # Supported languages, specs, and filesystem config
+│   ├── patch.py                   # pom.xml patch module
+│   ├── pipeline.py                # Command subprocess execution pipeline
+│   └── schema.py                  # YAML loader and schema reference collector
+├── src/
+│   └── main/
+│       └── resources/
+│           ├── common.yaml        # Shared ASM schemas (QuantityValue, units…)
+│           ├── datacube.yaml      # Datacube-related shared schemas
+│           ├── gc.yaml            # Gas Chromatography instrument spec
+│           └── templates/
+│               └── java/          # Mustache overrides for the Java generator
+├── tests/                         # Unit/integration test suite
+│   ├── conftest.py                # Shared pytest fixtures
+│   ├── test_cli.py                # CLI logic tests
+│   ├── test_command.py            # Command construction logic tests
+│   ├── test_config.py             # Configuration properties tests
+│   ├── test_patch.py              # Java pom.xml patching tests
+│   ├── test_pipeline.py           # Pipeline runner tests
+│   └── test_schema.py             # Schema collision and extraction tests
+├── .github/
+│   └── workflows/
+│       └── generate.yml           # CI/CD: generate + publish to all registries
+└── target/
+    └── generated-sources/         # Output directory (git-ignored)
+        ├── commons/{java,typescript,csharp,python}/
+        └── gc/{java,typescript,csharp,python}/
+```
 
-- 2026-06-11 - Séparation stricte des modèles analytiques : chaque technique analytique (ex: GC, DSC) doit être décrite dans son propre fichier OpenAPI dédié (`gc.yaml`, `dsc.yaml`, etc.) sans jamais imbriquer les modèles d'une technique dans le fichier canonique d'une autre. Le recouvrement entre techniques différentes ne peut se faire qu'au niveau des briques communes (`common.yaml`, `datacube.yaml`).
-- 2026-06-11 - Vérification systématique de la génération multi-langage : une tâche n'est considérée comme terminée qu'après avoir vérifié explicitement que les classes sont générées dans tous les langages configurés (Java, Python, TypeScript) pour chaque nouveau fichier YAML introduit ou modifié. Cela implique de lancer `mvn clean generate-sources` et de contrôler la présence des classes dans `target/generated-sources/` pour chaque langage demandé.
+> **`target/` is git-ignored.** Never commit generated sources. The CI workflow republishes
+> them automatically on every push to `main` that touches a `.yaml` spec or `generate.py`.
+
+---
+
+## Key Entry Points
+
+### `generate.py`
+
+The single thin entry point for the generation pipeline. It delegates all arguments to
+`allotrope_gen.cli.main()`. All language/package settings and generation orchestration live in
+the `allotrope_gen` package — do **not** duplicate them in `pom.xml` or anywhere else.
+
+```
+python generate.py                         # generate everything
+python generate.py --specs gc hplc        # only selected instrument specs
+python generate.py --langs java python    # only selected languages
+python generate.py --dry-run              # print commands without executing
+python generate.py --commons-only         # only generate the commons libraries
+python generate.py --list-specs           # list registered instrument specs
+python generate.py --list-langs           # list supported languages
+```
+
+**Prerequisites** (must be on `PATH` before running):
+
+| Tool | Version | Install |
+|---|---|---|
+| Python | ≥ 3.12 | system / pyenv |
+| `pyyaml` | any | `pip install pyyaml` |
+| `openapi-generator-cli` | pinned in `openapitools.json` | `npm install -g @openapitools/openapi-generator-cli` |
+| Java JDK | 17 | temurin / system |
+| Node.js | ≥ 20 | nvm / system |
+
+On **Windows**, `generate.py` automatically invokes `openapi-generator-cli.cmd`
+(the npm `.cmd` wrapper) instead of the bare executable. Do not change this unless
+you also update the `_generator_cli()` function.
+
+---
+
+## Data-Flow Summary
+
+```
+common.yaml ──┐
+datacube.yaml ─┤─ merged_commons_yaml() ──► openapi-generator ──► commons/{lang}/
+               │
+gc.yaml ────────┤─ schemas_referenced_from_commons()
+                │   (computes importMappings)
+                └──► openapi-generator ──► gc/{lang}/
+```
+
+1. **Commons merge** — `generate_commons()` merges `common.yaml` + `datacube.yaml` into a
+   single `commons-merged.yaml` (written under `target/`), then calls the generator once per
+   language. Schema name collisions between the two files are a hard error.
+2. **Spec generation** — `generate_specs()` scans each instrument YAML for `$ref`s to
+   commons files, builds `--import-mappings` so the generator does not re-emit those classes,
+   then calls the generator.
+3. **Java pom.xml patch** — After Java generation, `patch_java_pom()` idempotently injects
+   the `central-publishing-maven-plugin` required for Maven Central deployment.
+
+---
+
+## Adding a New Instrument Spec
+
+1. Drop a new OpenAPI 3.1 YAML file in `src/main/resources/` (e.g. `hplc.yaml`).
+2. Add it to the `SPECS` dict in `allotrope_gen/config.py`:
+   ```python
+   SPECS: dict[str, Path] = {
+       "gc":   RESOURCES / "gc.yaml",
+       "hplc": RESOURCES / "hplc.yaml",   # ← new
+   }
+   ```
+3. Update the CI matrix lists in `.github/workflows/generate.yml` — search for
+   `# keep in sync with SPECS in allotrope_gen/config.py` and add the new spec key to every list.
+4. Run `python generate.py --specs hplc --dry-run` to validate the command output before
+   committing.
+
+---
+
+## Adding a New Language
+
+1. Implement a `_<lang>_package(spec: str) -> str` or similar naming helper in `allotrope_gen/config.py`.
+2. Add an entry to the `LANGUAGES` dict in `allotrope_gen/config.py` following the existing pattern.
+3. Add the corresponding publish job to `.github/workflows/generate.yml`.
+
+---
+
+## Adding a New Common Schema
+
+Add the schema to `common.yaml` or `datacube.yaml`. It will automatically be included in
+the commons package. If the same name appears in both files with different content, generation
+will **fail with an error** — resolve the collision manually.
+
+---
+
+## CI / CD
+
+The workflow `generate.yml` runs on:
+
+- **Push to `main`** — only when `src/main/resources/**.yaml`, `generate.py`, the `allotrope_gen/` package, or `pyproject.toml` changes.
+- **Manual trigger** (`workflow_dispatch`) — accepts optional `specs`, `langs`, and
+  `dry_run` inputs.
+
+Job graph:
+
+```
+generate ──► publish-java          (Maven Central, per module)
+         ──► publish-npm-commons
+               └──► publish-npm-specs    (npm, per spec — depends on commons)
+         ──► publish-nuget         (NuGet, per module)
+         ──► publish-pypi          (PyPI, per module)
+```
+
+Required GitHub secrets:
+
+| Secret | Used by |
+|---|---|
+| `MAVEN_USERNAME` | publish-java |
+| `MAVEN_PASSWORD` | publish-java |
+| `GPG_PRIVATE_KEY` | publish-java (artifact signing) |
+| `GPG_PASSPHRASE` | publish-java |
+| `NPM_TOKEN` | publish-npm-commons, publish-npm-specs |
+| `NUGET_API_KEY` | publish-nuget |
+| `PYPI_TOKEN` | publish-pypi |
+
+---
+
+## Coding Conventions
+
+### `allotrope_gen` package
+
+- **Python ≥ 3.12** — use modern type hints (`list[str]`, `dict[str, Path]`); avoid
+  `typing` imports for built-in generics.
+- All generator properties are written to a per-run JSON config file
+  (`openapi-generator-config.json` inside each generator output directory) instead of CLI flags to avoid shell-quoting issues on
+  Windows. Keep it this way.
+- The `interpolate()` helper resolves `{spec}`, `{spec_pascal}`, `{spec_upper}` placeholders
+  in `extra_props` strings. Use it for any spec-dependent property value.
+- `run()` uses `shell=True` on Windows only (required by `.cmd` wrappers). Do not introduce
+  platform-specific logic anywhere else.
+- All code files should include high-quality, descriptive docstrings and have comprehensive unit test coverage in the `tests/` directory. Tests should be run using `pytest`.
+
+### OpenAPI YAML specs
+
+- Specs must be valid **OpenAPI 3.1** documents.
+- Cross-file references to commons must use the relative form:
+  `$ref: './common.yaml#/components/schemas/Foo'`
+  or `$ref: './datacube.yaml#/components/schemas/Foo'`.
+- Do not inline commons schemas inside instrument specs; always `$ref` them.
+- All schemas should be defined under `components/schemas`; inline schemas in `paths`
+  are not used by this pipeline.
+
+### Java Mustache templates (`src/main/resources/templates/java/`)
+
+- Only override templates that differ from the upstream openapi-generator defaults.
+- Keep overrides minimal — prefer upstream fixes over local patches when possible.
+
+---
+
+## What Agents Should NOT Do
+
+- **Do not commit to `target/`** — generated sources are ephemeral build artifacts.
+- **Do not edit `pom.xml`** for generation settings — `allotrope_gen/config.py` is the sole source of
+  truth; `pom.xml` is a legacy reference and is not executed in CI.
+- **Do not add publishing credentials** (tokens, keys, passwords) to any tracked file.
+- **Do not remove `--skip-validate-spec`** from `extra_opts` without first verifying that
+  all specs pass strict OpenAPI 3.1 validation — some ASM schemas use features that the
+  bundled validator rejects.
+- **Do not rename the `target/generated-sources/` output structure** without updating both
+  `allotrope_gen/config.py` and every `working-directory` path in `generate.yml`.
+- **Do not forget to align CI/CD triggers:** Whenever you restructure packages, rename files, or add/remove dependencies (e.g., in `pyproject.toml`), you must update the triggers and paths in `.github/workflows/generate.yml` accordingly.
+- **Do not let README.md drift out of date:** Always verify and update `README.md` to match changes to codebase structure, CLI syntax, prerequisites, configuration files, and examples.
+
+---
+
+## ASM Modeling Principles (from legacy guide)
+
+These rules come from the earlier French agent configuration and still apply to how OpenAPI
+specifications are modeled. They complement (but do not override) the orchestration rules above.
+
+1. **Simplification extrême des modèles**
+   - The original ASM JSON Schemas are extremely complex and verbose. Your role is to
+     simplify them in OpenAPI, not to reproduce their complexity.
+   - Focus exclusively on generating data models (DTOs/POCOs). Do not define API `paths`
+     or endpoints in the OpenAPI specs; everything lives under `components/schemas`.
+   - Avoid literal translations of complex JSON Schema constructs (`anyOf`, `oneOf`, `allOf`)
+     when they add noise. Flatten structures when reasonable and avoid untyped `any`/free-form
+     objects.
+
+2. **Organisation des fichiers OpenAPI**
+   - All specs live under `src/main/resources/`.
+   - Commons bricks (`common.yaml`, `datacube.yaml`) hold shared components. Prefer enriching
+     these files rather than duplicating structures in instrument specs.
+   - Instrument specs (e.g. `gc.yaml`, `dsc.yaml`) should remain focused on a single
+     analytical technique and reference commons via `$ref`.
+
+3. **Versioning tied to ASM schemas**
+   - The OpenAPI `info.version` must be derived from the original ASM schema `$id`.
+   - Extract year and month from the ASM schema URL path segment `.../REC/YYYY/MM/...`.
+   - Use the format `YYYY.MM.x` for the OpenAPI version, where `x` is a patch number.
+
+4. **Immutabilité absolue des modèles générés**
+   - Once a generated model (class/type/module) has been published, its name and structure
+     are considered public and immutable.
+   - You must not introduce retroactive mappings or renames (e.g. via `importMappings` or
+     generator config) that would change existing model names in any language.
+
+5. **Agrégation maîtrisée des techniques**
+   - Each analytical technique (GC, DSC, etc.) must have its own dedicated OpenAPI file
+     (`gc.yaml`, `dsc.yaml`, ...). Do not embed the models for one technique inside the
+     canonical file of another.
+   - Aggregation via a master file (e.g. `all_techniques.yaml`) that `$ref`s individual
+     specs is allowed, but you are responsible for ensuring this does not trigger
+     unintended renames or conflicts in generated code.
+
+6. **Validation locale et non-régression**
+   - When modifying specs, validate that you do not change already-published models.
+   - The recommended process is:
+     1. Generate the current baseline using `python generate.py` (or the CI-equivalent
+        configuration) on a clean branch.
+     2. Copy `target/generated-sources/` to a temporary directory.
+     3. Apply your spec changes and re-run generation.
+     4. Compare both directories recursively (e.g. `diff -r`) and ensure there are no
+        structural changes to previously existing models.
+
+---
+
+## Leçons Apprises (Append Only)
+
+- 2026-06-11 - Séparation stricte des modèles analytiques : chaque technique analytique
+  (ex: GC, DSC) doit être décrite dans son propre fichier OpenAPI dédié (`gc.yaml`,
+  `dsc.yaml`, etc.) sans jamais imbriquer les modèles d'une technique dans le fichier
+  canonique d'une autre. Le recouvrement entre techniques différentes ne peut se faire
+  qu'au niveau des briques communes (`common.yaml`, `datacube.yaml`).
+- 2026-06-11 - Vérification systématique de la génération multi-langage : une tâche n'est
+  considérée comme terminée qu'après avoir vérifié explicitement que les classes sont
+  générées dans tous les langages configurés (Java, Python, TypeScript, C#, etc.) pour
+  chaque nouveau fichier YAML introduit ou modifié. Cela implique de lancer
+  `python generate.py` (ou un sous-ensemble ciblé) et de contrôler la présence des
+  classes dans `target/generated-sources/` pour chaque langage demandé.
+
+## License
+
+Source code: [CeCILL 2.1](https://opensource.org/license/cecill-2-1) (GPL-compatible).  
+ASM JSON schemas: [CC-BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
