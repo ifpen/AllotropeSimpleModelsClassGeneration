@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [commons, gc]   # keep in sync with SPECS in allotrope_gen/config.py
+        module: [commons, gc, dsc]   # keep in sync with SPECS in allotrope_gen/config.py
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        spec: [gc]               # keep in sync with SPECS in allotrope_gen/config.py
+        spec: [gc, dsc]               # keep in sync with SPECS in allotrope_gen/config.py
       fail-fast: false
     steps:
       - uses: actions/download-artifact@v4
@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [commons, gc]
+        module: [commons, gc, dsc]
       fail-fast: false
     steps:
       - uses: actions/download-artifact@v4
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [commons, gc]
+        module: [commons, gc, dsc]
       fail-fast: false
     steps:
       - uses: actions/download-artifact@v4

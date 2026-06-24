@@ -42,6 +42,7 @@ COMMON_YAML_FILES: list[Path] = [
 #: Value = path to the OpenAPI 3.1 YAML file.
 SPECS: dict[str, Path] = {
     "gc": RESOURCES / "gc.yaml",
+    "dsc": RESOURCES / "dsc.yaml",
     # "hplc": RESOURCES / "hplc.yaml",
 }
 

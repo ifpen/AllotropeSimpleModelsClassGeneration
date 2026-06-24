@@ -35,7 +35,6 @@ The pipeline splits schemas into two layers:
 ```
 AllotropeSimpleModelsClassGeneration/
 ├── generate.py                    # Thin CLI entry point
-├── pom.xml                        # Legacy Maven config (kept for reference; superseded by allotrope_gen)
 ├── pyproject.toml                 # Package definition, metadata, and dependencies
 ├── openapitools.json              # openapi-generator-cli version pin
 ├── allotrope_gen/                 # Orchestration package
@@ -82,7 +81,7 @@ AllotropeSimpleModelsClassGeneration/
 
 The single thin entry point for the generation pipeline. It delegates all arguments to
 `allotrope_gen.cli.main()`. All language/package settings and generation orchestration live in
-the `allotrope_gen` package — do **not** duplicate them in `pom.xml` or anywhere else.
+the `allotrope_gen` package — do **not** duplicate them in any Maven `pom.xml`.
 
 ```
 python generate.py                         # generate everything
@@ -232,8 +231,8 @@ Required GitHub secrets:
 ## What Agents Should NOT Do
 
 - **Do not commit to `target/`** — generated sources are ephemeral build artifacts.
-- **Do not edit `pom.xml`** for generation settings — `allotrope_gen/config.py` is the sole source of
-  truth; `pom.xml` is a legacy reference and is not executed in CI.
+- **Do not configure generation via any `pom.xml`** — `allotrope_gen/config.py` is the sole source of
+  truth; Maven `pom.xml` files generated under `target/` are artifacts only and are not used in CI.
 - **Do not add publishing credentials** (tokens, keys, passwords) to any tracked file.
 - **Do not remove `--skip-validate-spec`** from `extra_opts` without first verifying that
   all specs pass strict OpenAPI 3.1 validation — some ASM schemas use features that the
@@ -247,10 +246,10 @@ Required GitHub secrets:
 
 ## ASM Modeling Principles (from legacy guide)
 
-These rules come from the earlier French agent configuration and still apply to how OpenAPI
+These rules come from the earlier agent configuration and still apply to how OpenAPI
 specifications are modeled. They complement (but do not override) the orchestration rules above.
 
-1. **Simplification extrême des modèles**
+1. **Extreme simplification of models**
    - The original ASM JSON Schemas are extremely complex and verbose. Your role is to
      simplify them in OpenAPI, not to reproduce their complexity.
    - Focus exclusively on generating data models (DTOs/POCOs). Do not define API `paths`
@@ -259,7 +258,7 @@ specifications are modeled. They complement (but do not override) the orchestrat
      when they add noise. Flatten structures when reasonable and avoid untyped `any`/free-form
      objects.
 
-2. **Organisation des fichiers OpenAPI**
+2. **OpenAPI file organisation**
    - All specs live under `src/main/resources/`.
    - Commons bricks (`common.yaml`, `datacube.yaml`) hold shared components. Prefer enriching
      these files rather than duplicating structures in instrument specs.
@@ -271,21 +270,21 @@ specifications are modeled. They complement (but do not override) the orchestrat
    - Extract year and month from the ASM schema URL path segment `.../REC/YYYY/MM/...`.
    - Use the format `YYYY.MM.x` for the OpenAPI version, where `x` is a patch number.
 
-4. **Immutabilité absolue des modèles générés**
+4. **Absolute immutability of generated models**
    - Once a generated model (class/type/module) has been published, its name and structure
      are considered public and immutable.
    - You must not introduce retroactive mappings or renames (e.g. via `importMappings` or
      generator config) that would change existing model names in any language.
 
-5. **Agrégation maîtrisée des techniques**
+5. **Controlled aggregation of techniques**
    - Each analytical technique (GC, DSC, etc.) must have its own dedicated OpenAPI file
      (`gc.yaml`, `dsc.yaml`, ...). Do not embed the models for one technique inside the
      canonical file of another.
-   - Aggregation via a master file (e.g. `all_techniques.yaml`) that `$ref`s individual
-     specs is allowed, but you are responsible for ensuring this does not trigger
-     unintended renames or conflicts in generated code.
+   - Do not introduce aggregated “master” OpenAPI files that bundle multiple analytical
+     techniques into a single library. The rule is strictly: one technique = one file = one
+     published library per language, all sharing the same commons base.
 
-6. **Validation locale et non-régression**
+6. **Local validation and non-regression**
    - When modifying specs, validate that you do not change already-published models.
    - The recommended process is:
      1. Generate the current baseline using `python generate.py` (or the CI-equivalent
@@ -297,19 +296,18 @@ specifications are modeled. They complement (but do not override) the orchestrat
 
 ---
 
-## Leçons Apprises (Append Only)
+## Lessons Learned (Append Only)
 
-- 2026-06-11 - Séparation stricte des modèles analytiques : chaque technique analytique
-  (ex: GC, DSC) doit être décrite dans son propre fichier OpenAPI dédié (`gc.yaml`,
-  `dsc.yaml`, etc.) sans jamais imbriquer les modèles d'une technique dans le fichier
-  canonique d'une autre. Le recouvrement entre techniques différentes ne peut se faire
-  qu'au niveau des briques communes (`common.yaml`, `datacube.yaml`).
-- 2026-06-11 - Vérification systématique de la génération multi-langage : une tâche n'est
-  considérée comme terminée qu'après avoir vérifié explicitement que les classes sont
-  générées dans tous les langages configurés (Java, Python, TypeScript, C#, etc.) pour
-  chaque nouveau fichier YAML introduit ou modifié. Cela implique de lancer
-  `python generate.py` (ou un sous-ensemble ciblé) et de contrôler la présence des
-  classes dans `target/generated-sources/` pour chaque langage demandé.
+- 2026-06-11 - Strict separation of analytical models: each analytical technique
+  (e.g. GC, DSC) must be described in its own dedicated OpenAPI file (`gc.yaml`,
+  `dsc.yaml`, etc.) and must never embed the models of another technique in its
+  canonical file. Any overlap between techniques can only happen via the commons
+  bricks (`common.yaml`, `datacube.yaml`).
+- 2026-06-11 - Systematic verification of multi-language generation: a task is considered
+  complete only after explicitly checking that classes are generated in all configured
+  languages (Java, Python, TypeScript, C#, etc.) for each new or modified YAML file.
+  This implies running `python generate.py` (or a focused subset) and verifying the
+  presence of classes under `target/generated-sources/` for every requested language.
 
 ## License
 
