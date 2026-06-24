@@ -11,6 +11,11 @@ A set of libraries compatible with the Allotrope Simple Models.
 A project from [IFP Energies Nouvelles][ifpen], a public research, innovation and
 training organization in the fields of energy, transport and the environment.
 
+## Documentation
+    
+Complete API documentation for all supported languages is available here:
+[https://ifpen.github.io/AllotropeSimpleModelsClassGeneration/](https://ifpen.github.io/AllotropeSimpleModelsClassGeneration/)
+
 ## Philosophy
 
 This project aims to create libraries of classes that are compatible with the ASM JSON files (ie. a compliant JSON file can be deserialized into one of the classes)
