@@ -83,7 +83,7 @@
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
+                            <inputSpec>${project.basedir}/src/main/resources/all_techniques.yaml</inputSpec>
                             <generatorName>java</generatorName>
                             <output>${project.build.directory}/generated-sources/java</output>
                             <modelPackage>fr.ifpen.allotropeconverters.allotrope-models</modelPackage>
@@ -106,18 +106,19 @@
                             <generateModelTests>false</generateModelTests>
                         </configuration>
                     </execution>
-                    <execution>
+                     <execution>
                         <id>generate-python</id>
                         <goals>
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
+                             <inputSpec>${project.basedir}/src/main/resources/all_techniques.yaml</inputSpec>
                             <generatorName>python</generatorName>
-                            <output>${project.build.directory}/generated-sources/python</output>
+                             <output>${project.build.directory}/py</output>
                             <globalProperties>
                                 <models />
                             </globalProperties>
+                            <generateModelTests>false</generateModelTests>
                         </configuration>
                     </execution>
                     <execution>
@@ -126,7 +127,7 @@
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
+                             <inputSpec>${project.basedir}/src/main/resources/all_techniques.yaml</inputSpec>
                             <generatorName>typescript-angular</generatorName>
                             <output>${project.build.directory}/generated-sources/typescript</output>
                             <generateApis>false</generateApis>
@@ -145,7 +146,7 @@
                         <id>generate-csharp</id>
                         <goals><goal>generate</goal></goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/gc.yaml</inputSpec>
+                             <inputSpec>${project.basedir}/src/main/resources/all_techniques.yaml</inputSpec>
                             <generatorName>csharp</generatorName>
                             <output>${project.build.directory}/generated-sources/csharp</output>
                             <packageName>IFPEN.AllotropeConverters</packageName>

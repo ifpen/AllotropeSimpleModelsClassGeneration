@@ -1,0 +1,24 @@
+openapi: 3.1.0
+info:
+  title: ASM Simple Models (GC + DSC)
+  # Version is aligned with the most recent technique (GC: 2025.06.x)
+  version: 2025.06.05
+  description: |
+    Aggregated OpenAPI specification that exposes simple models for
+    Gas Chromatography (GC) and Differential Scanning Calorimetry (DSC).
+
+    This file aggregates the technique-specific schemas defined in:
+    - gc.yaml
+    - dsc.yaml
+
+components:
+  schemas:
+    # Common / shared blocks are kept in their own files (common.yaml, datacube.yaml).
+
+    # GC simple model root
+    gasChromatographySimpleModel:
+      $ref: './gc.yaml#/components/schemas/gasChromatographySimpleModel'
+
+    # DSC simple model root
+    differentialScanningCalorimetrySimpleModel:
+      $ref: './dsc.yaml#/components/schemas/differentialScanningCalorimetrySimpleModel'

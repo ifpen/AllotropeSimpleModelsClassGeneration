@@ -40,3 +40,4 @@ build/
 .DS_Store
 .maven/
 maven.zip
+build.log

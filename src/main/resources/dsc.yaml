@@ -1,0 +1,136 @@
+openapi: 3.1.0
+info:
+  title: ASM Differential Scanning Calorimetry Schemas
+  # From $id: .../REC/2021/12/...
+  version: 2021.12.0
+  description: |
+    These schemas (and the generated classes) allow to read and write Allotrope Simple Models (ASM) for Differential Scanning Calorimetry (DSC).
+
+    They rely on the Allotrope Foundation ontologies and data models.
+
+    The classes are generated from the YAML schemas using OpenAPI Generator.
+
+    This file intentionally simplifies the original ASM JSON Schemas and only keeps the core concepts needed for simple models.
+
+components:
+  schemas:
+    differentialScanningCalorimetrySimpleModel:
+      type: object
+      properties:
+        differential scanning calorimetry aggregate document:
+          $ref: '#/components/schemas/differentialScanningCalorimetryAggregateDocument'
+        "$asm.manifest":
+          type: string
+          enum:
+            - "http://purl.allotrope.org/manifests/differential-scanning-calorimetry/REC/2021/12/differential-scanning-calorimetry.embed.manifest"
+          default: "http://purl.allotrope.org/manifests/differential-scanning-calorimetry/REC/2021/12/differential-scanning-calorimetry.embed.manifest"
+
+    differentialScanningCalorimetryAggregateDocument:
+      type: object
+      properties:
+        device system document:
+          $ref: '#/components/schemas/dscDeviceSystemDocument'
+        differential scanning calorimetry document:
+          type: array
+          items:
+            $ref: '#/components/schemas/differentialScanningCalorimetryDocument'
+      required:
+        - device system document
+        - differential scanning calorimetry document
+
+    dscDeviceSystemDocument:
+      type: object
+      description: Simplified device system description for DSC measurements.
+      properties:
+        asset management identifier:
+          type: string
+        device identifier:
+          type: string
+        model number:
+          type: string
+        equipment serial number:
+          type: string
+        firmware version:
+          type: string
+        description:
+          type: string
+        brand name:
+          type: string
+        product manufacturer:
+          type: string
+      required:
+        - asset management identifier
+
+    differentialScanningCalorimetryDocument:
+      type: object
+      properties:
+        analyst:
+          type: string
+        analytical method identifier:
+          type: string
+        assay comment:
+          type: string
+        assay data identifier:
+          type: string
+        asset management identifier:
+          type: string
+        balance identifier:
+          type: string
+        batch identifier:
+          type: string
+        container state description:
+          type: string
+        container type:
+          type: string
+        device method identifier:
+          type: string
+        equipment serial number:
+          type: string
+        material identifier:
+          type: string
+        measurement identifier:
+          type: string
+        measurement time:
+          type: string
+          format: date-time
+        sample identifier:
+          type: string
+        sample weight:
+          $ref: './common.yaml#/components/schemas/MilligramsQuantityValue'
+        peak list:
+          $ref: '#/components/schemas/dscPeakList'
+      required:
+        - device method identifier
+        - asset management identifier
+        - assay data identifier
+        - material identifier
+        - sample weight
+        - container type
+        - container state description
+        - measurement time
+        - analytical method identifier
+        - sample identifier
+
+    dscPeakList:
+      type: object
+      properties:
+        differential scanning calorimetry peak:
+          type: array
+          items:
+            $ref: '#/components/schemas/dscPeak'
+
+    dscPeak:
+      type: object
+      properties:
+        glass transition temperature:
+          $ref: './common.yaml#/components/schemas/DegreesCelsiusQuantityValue'
+        heat capacity (dsc):
+          $ref: './common.yaml#/components/schemas/JoulePerGramDegreeCelsiusQuantityValue'
+        peak onset temperature:
+          $ref: './common.yaml#/components/schemas/DegreesCelsiusQuantityValue'
+        peak temperature:
+          $ref: './common.yaml#/components/schemas/DegreesCelsiusQuantityValue'
+        transition assignment:
+          type: string
+        transition enthalpy:
+          $ref: './common.yaml#/components/schemas/JoulePerGramQuantityValue'

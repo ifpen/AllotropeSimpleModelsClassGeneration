@@ -89,3 +89,39 @@ components:
             unit:
               type: string
               enum: [ "%" ]
+
+    MilligramsQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "mg" ]
+
+    DegreesCelsiusQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "degC" ]
+
+    JoulePerGramQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "J/g" ]
+
+    JoulePerGramDegreeCelsiusQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "J/(g °C)" ]
