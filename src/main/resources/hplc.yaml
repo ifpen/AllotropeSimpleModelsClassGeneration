@@ -1250,7 +1250,6 @@ components:
           $ref: '#/components/schemas/CoreStatisticsAggregateDocument'
         chromatogram data cube:
           $ref: ./datacube.yaml#/components/schemas/AsmDatacube
-          deprecated: true
         chromatography column document:
           type: object
           properties:

@@ -274,14 +274,31 @@ def test_hplc_cubes_use_shared_datacube_without_local_shape_or_unit_wrappers():
 
     visit(schemas)
     assert len(found_cubes) == len(cube_properties)
-    assert all(cube.get("$ref") == shared_cube_ref for cube in found_cubes)
-    assert all(set(cube) <= {"$ref", "deprecated"} for cube in found_cubes)
+    assert all(cube == {"$ref": shared_cube_ref} for cube in found_cubes)
     assert not any(
         name.startswith("LiquidChromatography")
         and name.endswith(("Dimension", "Measure", "DataCube"))
         for name in schemas
     )
     assert not any("cube-structure" in line for line in SPECS["hplc"].read_text(encoding="utf-8").splitlines())
+
+
+def test_hplc_deprecations_are_scoped_to_officially_deprecated_properties():
+    schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+    measurement = schemas["LiquidChromatographyMeasurementDocument"]["properties"]
+
+    deprecated = {
+        name for name, prop in measurement.items() if prop.get("deprecated") is True
+    }
+    assert deprecated == {
+        "analytical method identifier",
+        "experimental data identifier",
+        "method version",
+    }
+    assert measurement["chromatogram data cube"]["$ref"] == (
+        "./datacube.yaml#/components/schemas/AsmDatacube"
+    )
+    assert "deprecated" not in measurement["chromatogram data cube"]
 
 
 def test_hplc_projection_includes_official_lc_root_property_paths():
