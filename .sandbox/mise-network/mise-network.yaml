@@ -1,0 +1,18 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+displayName: Allotrope development tool downloads
+description: Egress hosts used to install this project's pinned mise toolchain.
+kind: mixin
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - nodejs.org
+          - mise-java.jdx.dev
+          - pypi.org
+          - files.pythonhosted.org
+          - registry.npmjs.org
+          - repo1.maven.org
+          - repo.maven.apache.org

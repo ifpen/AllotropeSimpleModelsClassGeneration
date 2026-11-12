@@ -1,0 +1,6 @@
+[tools]
+python = "3.12.16"
+node = "22.22.1"
+java = "temurin-17.0.21+9"
+uv = "0.13.8"
+"npm:@openapitools/openapi-generator-cli" = "2.42.0"

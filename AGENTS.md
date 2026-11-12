@@ -28,6 +28,9 @@ The pipeline splits schemas into two layers:
 ```
 AllotropeSimpleModelsClassGeneration/
 ├── generate.py                    # Thin CLI entry point
+├── .mise.toml                     # Pinned project toolchain for Docker Sandbox
+├── sbxenv.yaml                    # Docker Sandbox OpenCode environment
+├── .sandbox/mise-network/          # Project-specific tool-download egress policy
 ├── pyproject.toml                 # Package definition, metadata, and dependencies
 ├── openapitools.json              # openapi-generator-cli version pin
 ├── allotrope_gen/                 # Orchestration package
@@ -112,6 +115,40 @@ is only needed at install/update time (and for TypeScript package builds).
 On **Windows**, `generate.py` automatically invokes `openapi-generator-cli.cmd`
 (the npm `.cmd` wrapper) instead of the bare executable. Do not change this unless
 you also update the `_generator_cli()` function.
+
+### Docker Sandbox development
+
+The repository provides `sbxenv.yaml` for a Docker Sandbox using the published
+OpenCode workload (`agent: opencode`), Docker's published mise v3 mixin, and a
+local declaration-only mixin with the project-specific tool-download egress
+policy. The published mise mixin intentionally leaves language/package download
+hosts to each project; keep this policy aligned with the pinned tools in
+`.mise.toml`. Keep the environment file at the repository root, as configured,
+and do not add a Dockerfile or Docker Compose setup for this workflow.
+
+The host needs the Docker Sandboxes `sbx` CLI and local virtualization support;
+Docker Engine is not a generation prerequisite. On Windows 11, install the CLI
+with `winget install Docker.sbx` and enable Windows Hypervisor Platform as
+described in the [Docker Sandboxes installation guide](https://docs.docker.com/ai/sandboxes/install/).
+Review the configuration and launch from the repository root:
+
+```powershell
+sbx login
+sbx env plan
+sbx env run
+```
+
+On the first run in the sandbox, install the exact versions listed in
+`.mise.toml` and the project dependencies:
+
+```sh
+mise install
+uv sync --locked --all-extras
+```
+
+Use `uv run pytest` for tests and `uv run python generate.py` to generate
+clients. The CLI wrapper is installed by mise; the OpenAPI Generator JAR remains
+pinned separately by `openapitools.json` and downloads on first generation.
 
 To verify generated client builds without installing every language SDK on the
 host, `python verify_builds.py --specs commons gc hplc` runs the language builds

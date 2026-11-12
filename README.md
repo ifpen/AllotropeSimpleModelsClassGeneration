@@ -65,6 +65,53 @@ Generate all languages for the HPLC model locally with:
 python generate.py --specs hplc
 ```
 
+### Docker Sandbox development
+
+The repository includes a Docker Sandbox environment that runs OpenCode with
+the published mise mixin and a small local network-policy mixin. The sandbox
+uses the versions in `.mise.toml` for Python, Node.js, Java, `uv`, and the
+OpenAPI Generator CLI wrapper. The policy allows the download hosts those
+tools need under the sandbox's default deny-by-default egress. This keeps the
+project setup separate from Dockerfiles, Compose, and host-installed SDKs.
+
+Install Docker Sandboxes on Windows 11, then sign in:
+
+```powershell
+winget install Docker.sbx
+sbx login
+```
+
+Windows local sandboxes require Windows Hypervisor Platform. See the
+[Docker Sandboxes installation guide](https://docs.docker.com/ai/sandboxes/install/)
+for platform requirements and setup.
+
+From the repository root, review and start the environment:
+
+```powershell
+sbx env plan
+sbx env run
+```
+
+On first start, install the pinned toolchain and sync the Python dependencies
+from the lockfile in the OpenCode terminal:
+
+```sh
+mise install
+uv sync --locked --all-extras
+```
+
+Run project tests or generate models inside the sandbox:
+
+```sh
+uv run pytest
+uv run python generate.py --dry-run
+uv run python generate.py
+```
+
+The first real generation downloads the OpenAPI Generator JAR pinned by
+`openapitools.json`. The `sbx` CLI and local virtualization support are needed
+on the host; the language toolchain is installed inside the sandbox.
+
 ### Generating and building locally
 
 Generation runs OpenAPI Generator on your machine. These executables must be
