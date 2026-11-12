@@ -1,0 +1,1428 @@
+openapi: 3.1.0
+info:
+  title: ASM Liquid Chromatography Schemas
+  version: 2026.09.0
+  description: Full root-reachable model for the Allotrope Simple Model Liquid Chromatography (tabular embed) REC/2026/09
+    schema.
+components:
+  schemas:
+    liquidChromatographySimpleModel:
+      type: object
+      required:
+      - $asm.manifest
+      properties:
+        liquid chromatography aggregate document:
+          type: object
+          properties:
+            analysis sequence document:
+              type: object
+              properties:
+                UNC path:
+                  type: string
+                custom information aggregate document:
+                  $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                end time:
+                  $ref: ./common.yaml#/components/schemas/DateTimeValue
+                file name:
+                  type: string
+                identifier:
+                  type: string
+                method identifier:
+                  type: string
+                method name:
+                  type: string
+                start time:
+                  $ref: ./common.yaml#/components/schemas/DateTimeValue
+                version number:
+                  type: string
+                written name:
+                  type: string
+              required:
+              - written name
+            calculated data aggregate document:
+              $ref: '#/components/schemas/CoreCalculatedDataAggregateDocument'
+            custom information aggregate document:
+              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+            data system document:
+              type: object
+              properties:
+                ASM conversion time:
+                  $ref: ./common.yaml#/components/schemas/DateTimeValue
+                ASM converter name:
+                  type: string
+                ASM converter version:
+                  type: string
+                ASM file identifier:
+                  type: string
+                UNC path:
+                  type: string
+                custom information aggregate document:
+                  $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                data system instance identifier:
+                  type: string
+                database primary key:
+                  type: string
+                file name:
+                  type: string
+                software name:
+                  type: string
+                software version:
+                  type: string
+              required:
+              - ASM file identifier
+              - data system instance identifier
+              oneOf:
+              - required:
+                - UNC path
+                - file name
+              - required:
+                - database primary key
+            device system document:
+              type: object
+              properties:
+                asset management identifier:
+                  type: string
+                brand name:
+                  type: string
+                custom information aggregate document:
+                  $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                description: {}
+                device document:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      brand name:
+                        type: string
+                      custom information aggregate document:
+                        $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                      device identifier:
+                        type: string
+                      device type:
+                        type: string
+                      equipment serial number:
+                        type: string
+                      firmware version:
+                        type: string
+                      model number:
+                        type: string
+                      product manufacturer:
+                        type: string
+                      written name:
+                        type: string
+                      '@index':
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                    required:
+                    - device type
+                    description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST
+                      have an explicit @index property stating the position. The index value is a strict positive 32bit signed
+                      integer (excluding 0).
+                device identifier:
+                  type: string
+                equipment serial number:
+                  type: string
+                firmware version:
+                  type: string
+                model number:
+                  type: string
+                product manufacturer:
+                  type: string
+                detector model number:
+                  type: string
+                pump model number:
+                  type: string
+            electronic project record:
+              $ref: '#/components/schemas/CoreElectronicProjectRecord'
+            electronic signature aggregate document:
+              $ref: '#/components/schemas/CoreElectronicSignatureAggregateDocument'
+            processed data aggregate document:
+              $ref: '#/components/schemas/CoreProcessedDataAggregateDocument'
+            statistics aggregate document:
+              $ref: '#/components/schemas/CoreStatisticsAggregateDocument'
+            liquid chromatography document:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                properties:
+                  analyst:
+                    type: string
+                  custom information aggregate document:
+                    $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                  electronic project record:
+                    $ref: '#/components/schemas/CoreElectronicProjectRecord'
+                  log:
+                    $ref: '#/components/schemas/CoreLog'
+                    properties:
+                      log entry:
+                        items:
+                          properties:
+                            elapsed volume:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                              type: object
+                              properties:
+                                unit:
+                                  type: string
+                                  enum:
+                                  - mL
+                  submitter:
+                    type: string
+                  measurement aggregate document:
+                    $ref: '#/components/schemas/measurementAggregateDocument'
+                  fraction aggregate document:
+                    properties:
+                      fraction document:
+                        type: array
+                        minItems: 1
+                        items:
+                          type: object
+                          properties:
+                            custom information aggregate document:
+                              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                            end time:
+                              $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+                            end trigger reason:
+                              type: string
+                            identifier:
+                              type: string
+                            location aggregate document:
+                              properties:
+                                location document:
+                                  type: array
+                                  minItems: 1
+                                  items:
+                                    type: object
+                                    properties:
+                                      location identifier:
+                                        type: string
+                                      vial location identifier:
+                                        type: string
+                                      well location identifier:
+                                        type: string
+                                    anyOf:
+                                    - required:
+                                      - location identifier
+                                    - required:
+                                      - vial location identifier
+                                    - required:
+                                      - well location identifier
+                              required:
+                              - location document
+                            start time:
+                              $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+                            start trigger reason:
+                              type: string
+                            start volume:
+                              $ref: ./common.yaml#/components/schemas/MicrolitersQuantityValue
+                            volume:
+                              $ref: ./common.yaml#/components/schemas/MicrolitersQuantityValue
+                            written name:
+                              type: string
+                          required:
+                          - volume
+                          - location aggregate document
+                required:
+                - measurement aggregate document
+                - analyst
+          required:
+          - liquid chromatography document
+        $asm.manifest:
+          $ref: ./common.yaml#/components/schemas/AsmManifest
+    CoreCustomInformationAggregateDocument:
+      type: object
+      properties:
+        custom information document:
+          type: array
+          items:
+            type: object
+            properties:
+              datum label:
+                type: string
+              description: {}
+              identifier:
+                type: string
+              '@index':
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+            required:
+            - datum label
+            oneOf:
+            - properties:
+                scalar double datum:
+                  $ref: ./common.yaml#/components/schemas/DoubleValue
+                unit:
+                  type: string
+              required:
+              - scalar double datum
+            - properties:
+                scalar string datum:
+                  type: string
+              required:
+              - scalar string datum
+            - properties:
+                scalar timestamp datum:
+                  $ref: ./common.yaml#/components/schemas/DateTimeValue
+              required:
+              - scalar timestamp datum
+            - properties:
+                scalar boolean datum:
+                  $ref: ./common.yaml#/components/schemas/BooleanValue
+              required:
+              - scalar boolean datum
+            description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an
+              explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding
+              0).
+      required:
+      - custom information document
+    CoreCalculatedDataAggregateDocument:
+      type: object
+      properties:
+        calculated data document:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              calculated data identifier:
+                type: string
+              calculated data name:
+                type: string
+              calculated result:
+                $ref: ./common.yaml#/components/schemas/QuantityValue
+              calculation description:
+                type: string
+              data source aggregate document:
+                $ref: '#/components/schemas/CoreDataSourceAggregateDocument'
+              electronic project record:
+                $ref: '#/components/schemas/CoreElectronicProjectRecord'
+              '@index':
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+            required:
+            - calculated data name
+            - calculated result
+            description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an
+              explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding
+              0).
+      required:
+      - calculated data document
+    CoreDataSourceAggregateDocument:
+      type: object
+      properties:
+        data source document:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              data source feature:
+                type: string
+              data source identifier:
+                type: string
+              '@index':
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+            required:
+            - data source identifier
+            description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an
+              explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding
+              0).
+      required:
+      - data source document
+    CoreElectronicProjectRecord:
+      type: object
+      properties:
+        description: {}
+        start time:
+          $ref: ./common.yaml#/components/schemas/DateTimeValue
+        written name:
+          type: string
+      required:
+      - written name
+    CoreElectronicSignatureAggregateDocument:
+      type: object
+      properties:
+        electronic signature document:
+          type: array
+          minItems: 0
+          items:
+            type: object
+            properties:
+              account identifier:
+                type: string
+              identifier:
+                type: string
+              measurement identifier:
+                type: string
+              method identifier:
+                type: string
+              personal name:
+                type: string
+              processed data identifier:
+                type: string
+              signature role type:
+                type: string
+              time:
+                type: string
+              '@index':
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+            required:
+            - account identifier
+            - personal name
+            - signature role type
+            - time
+            anyOf:
+            - required:
+              - identifier
+            - required:
+              - measurement identifier
+            - required:
+              - processed data identifier
+            - required:
+              - method identifier
+            description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an
+              explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding
+              0).
+    CoreProcessedDataAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        electronic project record:
+          $ref: '#/components/schemas/CoreElectronicProjectRecord'
+        processed data document:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              calculated data aggregate document:
+                $ref: '#/components/schemas/CoreCalculatedDataAggregateDocument'
+              custom information aggregate document:
+                $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+              data processing document:
+                type: object
+                properties:
+                  data processing time:
+                    $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+                  data processing type:
+                    type: string
+                  method identifier:
+                    type: string
+                  method name:
+                    type: string
+                  method version:
+                    type: string
+              data source aggregate document:
+                $ref: '#/components/schemas/CoreDataSourceAggregateDocument'
+              description: {}
+              electronic project record:
+                $ref: '#/components/schemas/CoreElectronicProjectRecord'
+              group identifier:
+                type: string
+              match result aggregate document:
+                $ref: '#/components/schemas/CoreMatchResultAggregateDocument'
+              processed data identifier:
+                type: string
+              '@index':
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+            description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an
+              explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding
+              0).
+      required:
+      - processed data document
+    CoreMatchResultAggregateDocument:
+      type: object
+      properties:
+        match result document:
+          type: array
+          items:
+            type: object
+            properties:
+              InChI molecular structure:
+                type: string
+              InChIKey molecular structure:
+                type: string
+              Molfile molecular structure:
+                type: string
+              SMILES molecular structure:
+                type: string
+              conformance assessment:
+                type: string
+              database identifier:
+                type: string
+              description: {}
+              fingerprint identifier:
+                type: string
+              match quality index aggregate document:
+                type: object
+                properties:
+                  match quality index document:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        algorithm name:
+                          type: string
+                        description: {}
+                        lower limit:
+                          $ref: ./common.yaml#/components/schemas/DoubleValue
+                        match quality index:
+                          $ref: ./common.yaml#/components/schemas/DoubleValue
+                        upper limit:
+                          $ref: ./common.yaml#/components/schemas/DoubleValue
+                      required:
+                      - match quality index
+              molecular formula:
+                type: string
+              reference identifier:
+                type: string
+              synonym aggregate document:
+                type: object
+                properties:
+                  synonym document:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        written name:
+                          type: string
+                      required:
+                      - written name
+    CoreStatisticsAggregateDocument:
+      type: object
+      properties:
+        statistics document:
+          type: array
+          items:
+            type: object
+            properties:
+              statistical feature:
+                type: string
+                enum:
+                - BET C constant
+                - Raman intensity
+                - Raman interferogram intensity
+                - Raman wavenumber shift
+                - Young modulus
+                - abrasion weight
+                - absolute intensity
+                - absolute water content
+                - absorbance
+                - acquisition volume
+                - actual P/P0 result
+                - adsorbed volume at STP
+                - ambient humidity
+                - ambient pressure
+                - ambient temperature
+                - amount of substance
+                - angle
+                - angle of optical rotation
+                - angular velocity
+                - area
+                - attenuation coefficient
+                - average dead cell diameter (cell counter)
+                - average particle size
+                - average total cell circularity
+                - average total cell diameter
+                - average viable cell circularity
+                - background corrected turbidity
+                - birefringence
+                - break strain
+                - break stress
+                - cell path length
+                - chemical shift
+                - chromatography column film thickness
+                - chromatography column length
+                - chromatography column particle size
+                - circularity
+                - coating gap height
+                - coefficient of determination
+                - collision energy
+                - column inner diameter
+                - compartment temperature
+                - concentration
+                - container diameter
+                - container height
+                - degassed sample weight
+                - detector view volume
+                - diameter
+                - dielectric polarization
+                - dilution factor
+                - dilution volume
+                - dispensed volume
+                - dry gas flow rate
+                - dry sample weight
+                - eccentricity
+                - electric charge
+                - electric conductance
+                - electric conductivity
+                - electric current
+                - electric impedance
+                - electric resistance
+                - electric resistivity
+                - electron beam working distance
+                - end height
+                - energy (datum)
+                - enthalpy
+                - enthalpy of fusion
+                - enthalpy of sublimation
+                - enthalpy of vaporization
+                - exhaust gas flow rate
+                - extrapolated moisture content
+                - fill depth
+                - flow rate
+                - flow ratio
+                - fluorescence
+                - foam height
+                - force
+                - fracture energy
+                - glass transition temperature
+                - gloss
+                - gross weight
+                - hardness
+                - heat capacity
+                - heat capacity (dsc)
+                - heat flow
+                - heat seal length
+                - heat transfer coefficient
+                - height
+                - hold-up volume
+                - humidity
+                - image height
+                - image width
+                - incident radiation angle
+                - inlet gas pressure
+                - inner diameter
+                - intensity
+                - isocyanate reservoir temperature
+                - length
+                - linear velocity
+                - liquid height
+                - luminescence
+                - m/z
+                - mass
+                - mass attenuation coefficient
+                - mass change
+                - mass concentration
+                - mass fraction
+                - measurement chamber free space volume
+                - molar attenuation coefficient
+                - molar concentration
+                - molar enthalpy of fusion
+                - molar enthalpy of sublimation
+                - molar enthalpy of vaporization
+                - molar mass
+                - molecular mass
+                - monolayer quantity
+                - normalized foam height
+                - number concentration
+                - osmolality
+                - pCO2
+                - pCO2 (bga)
+                - pH
+                - pO2
+                - pO2 (bga)
+                - partial pressure
+                - particle size
+                - peak analyte amount
+                - peak load force
+                - peak onset temperature
+                - peak temperature
+                - plate heater temperature
+                - plate temperature
+                - plate well count
+                - polarity
+                - polyol reservoir temperature
+                - position count
+                - power
+                - pressure
+                - probe volume
+                - protein attenuation coefficient
+                - purity
+                - qNMR purity result
+                - reference material weight
+                - reflectance
+                - refractive index
+                - relative humidity
+                - relative intensity
+                - relative permittivity
+                - relative pressure (BET)
+                - relative response
+                - relative weight loss on drying
+                - reservoir temperature
+                - rotational speed
+                - sample temperature
+                - sample thickness
+                - sample weight
+                - sample weight before drying
+                - sample width
+                - saturated gas flow rate
+                - saturation vapor pressure
+                - seal initiation temperature
+                - size (datum)
+                - slope
+                - solvent reservoir temperature
+                - specific enthalpy of fusion
+                - specific enthalpy of sublimation
+                - specific enthalpy of vaporization
+                - specific heat capacity
+                - specific rotation
+                - specific surface area
+                - start height
+                - stirring rate
+                - strain
+                - stress
+                - tablet thickness
+                - tare weight
+                - temperature
+                - temperature rate
+                - thermal conductance
+                - thermal conductivity
+                - thickness
+                - titer
+                - torque
+                - total cell diameter
+                - total foam height
+                - total gas flow rate
+                - total material height
+                - transition enthalpy
+                - transmittance
+                - turbidity
+                - velocity
+                - viscosity
+                - void volume
+                - voltage
+                - voltage range
+                - volume
+                - volume concentration
+                - volume fraction
+                - water mass concentration
+                - water mass fraction
+                - wavelength
+                - wavenumber
+                - weight loss
+                - well volume
+                - width
+                - yield strain
+                - yield stress
+            required:
+            - statistical feature
+    measurementAggregateDocument:
+      type: object
+      properties:
+        analytical method identifier:
+          type: string
+        calculated data aggregate document:
+          $ref: '#/components/schemas/CoreCalculatedDataAggregateDocument'
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        diagnostic trace aggregate document:
+          type: object
+          properties:
+            custom information aggregate document:
+              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+            diagnostic trace document:
+              type: array
+              minItems: 0
+              items:
+                type: object
+                properties:
+                  custom information aggregate document:
+                    $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                  description: {}
+                required:
+                - description
+                additionalProperties:
+                  $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        error aggregate document:
+          $ref: '#/components/schemas/CoreErrorAggregateDocument'
+        experimental data identifier:
+          type: string
+        image aggregate document:
+          $ref: '#/components/schemas/CoreImageAggregateDocument'
+        measurement document:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/LiquidChromatographyMeasurementDocument'
+        method version:
+          type: string
+        processed data aggregate document:
+          $ref: '#/components/schemas/CoreProcessedDataAggregateDocument'
+        statistics aggregate document:
+          $ref: '#/components/schemas/CoreStatisticsAggregateDocument'
+      required:
+      - measurement document
+    LiquidChromatographyMeasurementDocument:
+      type: object
+      properties:
+        analytical method identifier:
+          deprecated: true
+          type: string
+        calculated data aggregate document:
+          $ref: '#/components/schemas/CoreCalculatedDataAggregateDocument'
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        detection type:
+          type: string
+        device control aggregate document:
+          type: object
+          properties:
+            custom information aggregate document:
+              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+            device control document:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                properties:
+                  brand name:
+                    type: string
+                  custom information aggregate document:
+                    $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                  detection type:
+                    type: string
+                  device identifier:
+                    type: string
+                  device type:
+                    type: string
+                  duration setting:
+                    $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                  equipment serial number:
+                    type: string
+                  firmware version:
+                    type: string
+                  model number:
+                    type: string
+                  product manufacturer:
+                    type: string
+                  profile setting aggregate document:
+                    type: object
+                    properties:
+                      custom information aggregate document:
+                        $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                      profile setting document:
+                        type: array
+                        minItems: 1
+                        items:
+                          type: object
+                          properties:
+                            control setting identifier:
+                              type: string
+                            custom information aggregate document:
+                              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                            description: {}
+                            duration setting:
+                              $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                            end time setting:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            final setting:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            initial setting:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            profile setting feature:
+                              type: string
+                            rate setting:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            start time setting:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            '@index':
+                              type: integer
+                              minimum: 1
+                              maximum: 2147483647
+                          required:
+                          - profile setting feature
+                          - initial setting
+                          - final setting
+                          anyOf:
+                          - required:
+                            - duration setting
+                          - required:
+                            - start time setting
+                            - end time setting
+                          description: A schema for an array item, that is ordered in a not-natural way. This means that it
+                            MUST have an explicit @index property stating the position. The index value is a strict positive
+                            32bit signed integer (excluding 0).
+                    required:
+                    - profile setting document
+                  '@index':
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  detector offset setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                  detector sampling rate setting:
+                    $ref: ./common.yaml#/components/schemas/HertzQuantityValue
+                  detector bandwidth setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  detector wavelength setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  electronic absorbance bandwidth setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  electronic absorbance reference bandwidth setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  electronic absorbance reference wavelength setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  electronic absorbance wavelength setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  excitation bandwidth setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  excitation wavelength setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - nm
+                  number of scans setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - '#'
+                    required:
+                    - unit
+                  polarization orientation setting:
+                    $ref: '#/components/schemas/CoreTNamed'
+                  read interval setting:
+                    $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                  total measurement time setting:
+                    $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                  detection duration setting:
+                    $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                  detector relative offset setting:
+                    $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                  m/z maximum setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - m/z
+                  m/z minimum setting:
+                    $ref: ./common.yaml#/components/schemas/QuantityValue
+                    type: object
+                    properties:
+                      unit:
+                        type: string
+                        enum:
+                        - m/z
+                  measurement mode setting:
+                    type: string
+                  polarity setting:
+                    $ref: '#/components/schemas/CoreTNamed'
+                required:
+                - device type
+                description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have
+                  an explicit @index property stating the position. The index value is a strict positive 32bit signed integer
+                  (excluding 0).
+          required:
+          - device control document
+        duration:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        electronic project record:
+          $ref: '#/components/schemas/CoreElectronicProjectRecord'
+        error aggregate document:
+          $ref: '#/components/schemas/CoreErrorAggregateDocument'
+        experimental data identifier:
+          deprecated: true
+          type: string
+        image aggregate document:
+          $ref: '#/components/schemas/CoreImageAggregateDocument'
+        measurement identifier:
+          type: string
+        measurement time:
+          $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+        method version:
+          deprecated: true
+          type: string
+        processed data aggregate document:
+          $ref: '#/components/schemas/CoreProcessedDataAggregateDocument'
+          properties:
+            processed data document:
+              items:
+                properties:
+                  peak list:
+                    type: object
+                    properties:
+                      custom information aggregate document:
+                        $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                      peak:
+                        type: array
+                        minItems: 0
+                        items:
+                          type: object
+                          properties:
+                            capacity factor (chromatography):
+                              $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                            custom information aggregate document:
+                              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+                            identifier:
+                              type: string
+                            peak area:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            peak end:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                              oneOf:
+                              - $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                              - $ref: '#/components/schemas/QudtML'
+                            peak height:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            peak selectivity (chromatography):
+                              $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                            peak start:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                              oneOf:
+                              - $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                              - $ref: '#/components/schemas/QudtML'
+                            relative peak area:
+                              $ref: ./common.yaml#/components/schemas/PercentQuantityValue
+                            relative peak height:
+                              $ref: ./common.yaml#/components/schemas/PercentQuantityValue
+                            retention time:
+                              $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                            retention volume:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                              type: object
+                              properties:
+                                unit:
+                                  type: string
+                                  enum:
+                                  - mL
+                            written name:
+                              type: string
+                            '@index':
+                              type: integer
+                              minimum: 1
+                              maximum: 2147483647
+                            peak value at end:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                            peak value at start:
+                              $ref: ./common.yaml#/components/schemas/QuantityValue
+                          oneOf:
+                          - required:
+                            - retention time
+                          - required:
+                            - retention volume
+                          anyOf:
+                          - properties:
+                              chromatographic peak resolution:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              chromatographic peak resolution using baseline peak widths:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              chromatographic peak resolution using peak width at half-height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              chromatographic peak resolution using statistical moments:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates (chromatography):
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates measured at 60.7 % of peak height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates measured at 32.4 % of peak height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates measured at 13.4 % of peak height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates measured at 4.4 % of peak height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates by tangent method:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates by peak width at half height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              number of theoretical plates by peak width at half height (JP14):
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              peak width at 4.4 % of height:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at 13.4 % of height:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at 32.4 % of height:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at 60.7 % of height:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at half height:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at 5 % of height:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at baseline:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at inflection:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width at 10 % of height:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              peak width:
+                                $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+                          - properties:
+                              statistical skew (chromatography):
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              asymmetry factor measured at 5 % height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              asymmetry factor measured at 10 % height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              asymmetry factor squared measured at 10 % height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              asymmetry factor squared measured at 4.4 % height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              asymmetry factor measured at 4.4 % height:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              asymmetry factor measured at baseline:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          - properties:
+                              chromatographic peak asymmetry factor:
+                                $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+                          description: A schema for an array item, that is ordered in a not-natural way. This means that it
+                            MUST have an explicit @index property stating the position. The index value is a strict positive
+                            32bit signed integer (excluding 0).
+                  data format specification type:
+                    type: string
+              properties:
+                peak list:
+                  type: object
+                  properties:
+                    peak:
+                      type: array
+                      minItems: 0
+                      items:
+                        type: object
+                        properties:
+                          peak area:
+                            $ref: ./common.yaml#/components/schemas/QuantityValue
+                            type: object
+                            properties:
+                              unit:
+                                type: string
+                                enum:
+                                - S.s
+                          peak height:
+                            $ref: ./common.yaml#/components/schemas/QuantityValue
+                            properties:
+                              unit:
+                                type: string
+                                enum:
+                                - S
+                            required:
+                            - unit
+                          peak value at end:
+                            $ref: ./common.yaml#/components/schemas/QuantityValue
+                            properties:
+                              unit:
+                                type: string
+                                enum:
+                                - S
+                            required:
+                            - unit
+                          peak value at start:
+                            $ref: ./common.yaml#/components/schemas/QuantityValue
+                            properties:
+                              unit:
+                                type: string
+                                enum:
+                                - S
+                            required:
+                            - unit
+                          '@index':
+                            type: integer
+                            minimum: 1
+                            maximum: 2147483647
+                        description: A schema for an array item, that is ordered in a not-natural way. This means that it
+                          MUST have an explicit @index property stating the position. The index value is a strict positive
+                          32bit signed integer (excluding 0).
+              minItems: 1
+        sample document:
+          type: object
+          properties:
+            batch identifier:
+              type: string
+            custom information aggregate document:
+              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+            description: {}
+            location identifier:
+              type: string
+            material identifier:
+              type: string
+            sample identifier:
+              type: string
+              description: Sample id is a measurement metadata that identifies a sample being measured.
+            sample preparation description:
+              type: string
+            sample role type:
+              type: string
+              enum:
+              - control sample role
+              - standard sample role
+              - validation sample role
+              - experiment sample role
+              - sample role
+              - spiked sample role
+              - blank role
+              - unknown sample role
+              - calibration sample role
+              - unspiked sample role
+              - specimen role
+              - quality control sample role
+              - reference sample role
+            written name:
+              type: string
+          required:
+          - sample identifier
+        statistics aggregate document:
+          $ref: '#/components/schemas/CoreStatisticsAggregateDocument'
+        chromatogram data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+          deprecated: true
+        chromatography column document:
+          type: object
+          properties:
+            chromatography column chemistry type:
+              type: string
+            chromatography column length:
+              $ref: ./common.yaml#/components/schemas/QuantityValue
+              type: object
+              properties:
+                unit:
+                  type: string
+                  enum:
+                  - cm
+            chromatography column part number:
+              type: string
+            chromatography column particle size:
+              $ref: ./common.yaml#/components/schemas/MicrometersQuantityValue
+            chromatography column serial number:
+              type: string
+            column inner diameter:
+              $ref: ./common.yaml#/components/schemas/MillimetersQuantityValue
+            custom information aggregate document:
+              $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+            product manufacturer:
+              type: string
+            written name:
+              type: string
+        injection document:
+          type: object
+          properties:
+            autosampler injection volume setting (chromatography):
+              $ref: ./common.yaml#/components/schemas/QuantityValue
+              type: object
+              properties:
+                unit:
+                  type: string
+                  enum:
+                  - mm^3
+            injection identifier:
+              type: string
+            injection time:
+              $ref: ./common.yaml#/components/schemas/DateTimeValue
+          required:
+          - autosampler injection volume setting (chromatography)
+          - injection identifier
+          - injection time
+        three-dimensional ultraviolet spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        absorption spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        transmittance spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        fluorescence emission profile data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        fluorescence emission spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        fluorescence excitation spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        mass chromatogram data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        data processing aggregate document:
+          type: object
+          properties:
+            data processing document:
+              type: array
+              items:
+                type: object
+                properties:
+                  data processing description:
+                    type: string
+                  data processing type:
+                    type: string
+        sample introduction document:
+          type: object
+          properties:
+            flow rate setting:
+              $ref: ./common.yaml#/components/schemas/QuantityValue
+              type: object
+              properties:
+                unit:
+                  type: string
+                  enum:
+                  - mL/min
+            laser firing frequency setting:
+              $ref: ./common.yaml#/components/schemas/HertzQuantityValue
+            sample introduction description:
+              type: string
+            sample introduction medium:
+              type: string
+            sample introduction mode setting:
+              type: string
+          required:
+          - sample introduction mode setting
+          - sample introduction medium
+        mass spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        three-dimensional mass spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+      required:
+      - sample document
+      - device control aggregate document
+      - chromatography column document
+    CoreLog:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        log entry:
+          type: array
+          minItems: 0
+          items:
+            type: object
+            properties:
+              author:
+                type: string
+              custom information aggregate document:
+                $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+              elapsed time:
+                $ref: ./common.yaml#/components/schemas/QuantityValue
+                type: object
+                properties:
+                  unit:
+                    type: string
+                    enum:
+                    - min
+              identifier:
+                type: string
+              log source name:
+                type: string
+              observation:
+                type: string
+              scalar timestamp datum:
+                $ref: ./common.yaml#/components/schemas/DateTimeValue
+            required:
+            - observation
+            - scalar timestamp datum
+    CoreErrorAggregateDocument:
+      type: object
+      properties:
+        error document:
+          type: array
+          minItems: 0
+          items:
+            type: object
+            properties:
+              error:
+                type: string
+              error feature:
+                type: string
+            required:
+            - error
+    CoreImageAggregateDocument:
+      type: object
+      properties:
+        image document:
+          type: array
+          minItems: 0
+          items:
+            type: object
+            properties:
+              experimental data identifier:
+                type: string
+              index:
+                $ref: ./common.yaml#/components/schemas/IntegerValue
+    QudtML:
+      $ref: ./common.yaml#/components/schemas/QuantityValue
+      type: object
+      properties:
+        unit:
+          type: string
+          enum:
+          - mL
+    CoreTNamed:
+      type: string
+      description: A reference to an arbitrary RDF resource identified by a SKOS preferred label. The label MUST be unique.

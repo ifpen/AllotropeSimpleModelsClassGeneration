@@ -1,10 +1,3 @@
-# AGENTS.md — AI Agent Guide
-
-This file provides authoritative guidance for AI agents (Copilot, Antigravity, Cursor, etc.)
-working in this repository. Read it fully before making any changes.
-
----
-
 ## Project Overview
 
 **Allotrope Simple Models Class Generation** is a multi-language code-generation pipeline
@@ -93,19 +86,38 @@ python generate.py --list-specs           # list registered instrument specs
 python generate.py --list-langs           # list supported languages
 ```
 
-**Prerequisites** (must be on `PATH` before running):
+**Generation prerequisites:** the executable tools below must be discoverable on `PATH`.
+PyYAML is a Python package, not a command-line executable. npm is needed to install
+or update the CLI, while Node.js is needed to run it. Maven and the .NET SDK are
+only needed to compile generated Java and C# clients respectively, not to run
+`generate.py`.
 
 | Tool | Version | Install |
 |---|---|---|
 | Python | ≥ 3.12 | system / pyenv |
-| `pyyaml` | any | `pip install pyyaml` |
-| `openapi-generator-cli` | pinned in `openapitools.json` | `npm install -g @openapitools/openapi-generator-cli` |
-| Java JDK | 17 | temurin / system |
+| PyYAML | any current version | `python -m pip install pyyaml` |
 | Node.js | ≥ 20 | nvm / system |
+| npm | any current version | Installed with Node.js; used to install the CLI |
+| `openapi-generator-cli` | pinned in `openapitools.json` | `npm install -g @openapitools/openapi-generator-cli` |
+| Java JDK (`java` on `PATH`) | 17 | temurin / system |
+
+The generator CLI downloads and runs its pinned JAR, so Java must be visible as
+`java` to the process; setting `JAVA_HOME` alone is insufficient. On Windows,
+the generation-time commands are `python.exe`, `node.exe`, `java.exe`, and the
+npm-installed `openapi-generator-cli.cmd`; add the JDK `bin` directory and npm's
+global executable directory to `PATH`. Check setup with `python --version`,
+`node --version`, `java -version`, and `openapi-generator-cli version`. npm itself
+is only needed at install/update time (and for TypeScript package builds).
 
 On **Windows**, `generate.py` automatically invokes `openapi-generator-cli.cmd`
 (the npm `.cmd` wrapper) instead of the bare executable. Do not change this unless
 you also update the `_generator_cli()` function.
+
+To verify generated client builds without installing every language SDK on the
+host, `python verify_builds.py --specs commons gc hplc` runs the language builds
+in Docker containers. Generate the selected modules first; Docker Engine must be
+installed, available as `docker`, and running. Generation itself still requires
+the host prerequisites above.
 
 ---
 
@@ -240,7 +252,7 @@ Required GitHub secrets:
 - **Do not rename the `target/generated-sources/` output structure** without updating both
   `allotrope_gen/config.py` and every `working-directory` path in `generate.yml`.
 - **Do not forget to align CI/CD triggers:** Whenever you restructure packages, rename files, or add/remove dependencies (e.g., in `pyproject.toml`), you must update the triggers and paths in `.github/workflows/generate.yml` accordingly.
-- **Do not let README.md drift out of date:** Always verify and update `README.md` to match changes to codebase structure, CLI syntax, prerequisites, configuration files, and examples.
+- **Do not let README.md and AGENTS.md drift out of date:** Always verify and update `README.md` and `AGENTS.md` to match changes to codebase structure, CLI syntax, prerequisites, configuration files, and examples.
 
 ---
 

@@ -141,6 +141,168 @@ class TestSpecs:
     def test_gc_registered(self):
         assert "gc" in SPECS
 
+    def test_hplc_registered(self):
+        assert "hplc" in SPECS
+        assert SPECS["hplc"].name == "hplc.yaml"
+        assert SPECS["hplc"].is_file()
+
+    def test_hplc_manifest_and_lc_root_reachable_fields(self):
+        from allotrope_gen.schema import load_yaml, schemas_referenced_from_commons
+
+        schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+        root = schemas["liquidChromatographySimpleModel"]
+        assert root["required"] == ["$asm.manifest"]
+        assert root["properties"]["$asm.manifest"]["$ref"] == (
+            "./common.yaml#/components/schemas/AsmManifest"
+        )
+
+        commons = schemas_referenced_from_commons(SPECS["hplc"])
+        assert {
+            "AsmManifest", "AsmDatacube",
+            "DateTimeValue", "QuantityValue",
+        } <= commons
+        assert "StringValue" not in commons
+
+        assert LANGUAGES["java"].import_pattern.format(
+            class_name="QuantityValue",
+            commons_package=LANGUAGES["java"].commons_package,
+        ) == "QuantityValue=fr.ifpen.allotropeconverters.allotrope_models.QuantityValue"
+        assert LANGUAGES["typescript-angular"].import_pattern.format(
+            class_name="QuantityValue",
+            commons_package=LANGUAGES["typescript-angular"].commons_package,
+        ) == "QuantityValue=@ifpen/allotrope-models-commons"
+        assert LANGUAGES["csharp"].import_pattern.format(
+            class_name="QuantityValue",
+            commons_package=LANGUAGES["csharp"].commons_package,
+        ) == "QuantityValue=IFPEN.AllotropeConverters.AllotropeModels.Model.QuantityValue"
+
+        technique = root["properties"]["liquid chromatography aggregate document"]
+        device_system = technique["properties"]["device system document"][
+            "properties"
+        ]
+        assert {
+            "asset management identifier", "brand name", "custom information aggregate document",
+            "description", "device document", "device identifier", "equipment serial number",
+            "firmware version", "model number", "product manufacturer", "detector model number",
+            "pump model number",
+        } <= device_system.keys()
+
+        aggregate = root["properties"]["liquid chromatography aggregate document"]
+        assert "liquid chromatography document" in aggregate["properties"]
+        assert "liquid chromatography document" in aggregate["required"]
+        lc_item = aggregate["properties"]["liquid chromatography document"]["items"]
+        assert "measurement aggregate document" in lc_item["properties"]
+        assert "fraction aggregate document" in lc_item["properties"]
+        assert "measurement aggregate document" in lc_item["required"]
+
+        measurement_aggregate = schemas["measurementAggregateDocument"]
+        assert lc_item["properties"]["measurement aggregate document"]["$ref"] == (
+            "#/components/schemas/measurementAggregateDocument"
+        )
+        assert measurement_aggregate["type"] == "object"
+        assert measurement_aggregate["required"] == ["measurement document"]
+        measurement = measurement_aggregate["properties"]["measurement document"]
+        assert measurement["minItems"] == 1
+        assert measurement["items"]["$ref"] == (
+            "#/components/schemas/LiquidChromatographyMeasurementDocument"
+        )
+        assert {
+            "analytical method identifier",
+            "calculated data aggregate document",
+            "custom information aggregate document",
+            "diagnostic trace aggregate document",
+            "error aggregate document",
+            "experimental data identifier",
+            "image aggregate document",
+            "method version",
+            "processed data aggregate document",
+            "statistics aggregate document",
+        } <= measurement_aggregate["properties"].keys()
+
+        # Like GC, HPLC has a named measurement item with fields declared
+        # directly on the item rather than hidden in a root-level overlay.
+        measurement_item = schemas["LiquidChromatographyMeasurementDocument"]
+        measurement_properties = measurement_item["properties"]
+        sample_document = measurement_properties["sample document"]
+        assert sample_document["properties"]["sample identifier"] == {
+            "type": "string",
+            "description": (
+                "Sample id is a measurement metadata that identifies a sample being measured."
+            ),
+        }
+        assert "sample identifier" in sample_document["required"]
+        assert "chromatogram data cube" in measurement_properties
+        assert "chromatography column document" in measurement_properties
+        assert "injection document" in measurement_properties
+        assert "device control aggregate document" in measurement_properties
+        assert "processed data aggregate document" in measurement_properties
+        cube_ref = "./datacube.yaml#/components/schemas/AsmDatacube"
+        assert measurement_properties["chromatogram data cube"]["$ref"] == cube_ref
+        assert "LiquidChromatographyChromatogramDataCube" not in schemas
+        assert not any(
+            name.startswith("LiquidChromatography")
+            and name.endswith(("Dimension", "Measure", "DataCube"))
+            for name in schemas
+        )
+        assert "device control aggregate document" in measurement_item["required"]
+        assert "chromatography column document" in measurement_item["required"]
+        assert not {"anyOf", "oneOf", "allOf"} & measurement_item.keys()
+        assert {
+            "chromatogram data cube",
+            "three-dimensional ultraviolet spectrum data cube",
+            "absorption spectrum data cube",
+            "transmittance spectrum data cube",
+            "fluorescence emission profile data cube",
+            "fluorescence emission spectrum data cube",
+            "fluorescence excitation spectrum data cube",
+            "mass chromatogram data cube",
+            "mass spectrum data cube",
+            "three-dimensional mass spectrum data cube",
+        } <= measurement_properties.keys()
+        assert measurement_properties["chromatography column document"]["properties"][
+            "chromatography column particle size"
+        ]["$ref"] == "./common.yaml#/components/schemas/MicrometersQuantityValue"
+        assert not any(
+            name.endswith("MeasurementDocumentItems")
+            or name.startswith("ChromatographyREC202609")
+            for name in schemas
+        )
+
+    def test_hplc_refs_are_resolvable(self):
+        from allotrope_gen.schema import load_yaml
+
+        spec = load_yaml(SPECS["hplc"])
+        schemas = spec["components"]["schemas"]
+        refs: set[str] = set()
+
+        def visit(node):
+            if isinstance(node, dict):
+                ref = node.get("$ref")
+                if isinstance(ref, str):
+                    refs.add(ref)
+                for child in node.values():
+                    visit(child)
+            elif isinstance(node, list):
+                for child in node:
+                    visit(child)
+
+        visit(spec)
+        local_names = set(schemas)
+        assert not {
+            ref for ref in refs
+            if ref.startswith("#/components/schemas/") and ref.rsplit("/", 1)[-1] not in local_names
+        }
+        assert not {ref for ref in refs if "http://" in ref or "https://" in ref}
+
+        commons = {}
+        for filename in ("common.yaml", "datacube.yaml"):
+            commons.update(load_yaml(SPECS["hplc"].with_name(filename))["components"]["schemas"])
+        assert not {
+            ref for ref in refs
+            if ref.startswith(("./common.yaml#/", "./datacube.yaml#/"))
+            and ref.rsplit("/", 1)[-1] not in commons
+        }
+
     def test_all_values_are_paths(self):
         from pathlib import Path
         for key, path in SPECS.items():

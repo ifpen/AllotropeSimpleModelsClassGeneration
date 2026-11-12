@@ -43,7 +43,7 @@ COMMON_YAML_FILES: list[Path] = [
 SPECS: dict[str, Path] = {
     "gc": RESOURCES / "gc.yaml",
     "dsc": RESOURCES / "dsc.yaml",
-    # "hplc": RESOURCES / "hplc.yaml",
+    "hplc": RESOURCES / "hplc.yaml",
 }
 
 # ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         output_subdir="java",
         package_key="modelPackage",
         package_fn=java_package,
-        commons_package=java_package("commons"),
+        commons_package=java_package(""),
         import_pattern="{class_name}={commons_package}.{class_name}",
         extra_props={
             "groupId":                  "fr.ifpen.allotropeconverters",
@@ -236,7 +236,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         package_key="packageName",
         package_fn=csharp_namespace,
         commons_package=csharp_namespace(""),
-        import_pattern="{class_name}={commons_package}.{class_name}",
+        import_pattern="{class_name}={commons_package}.Model.{class_name}",
         extra_props={
             "netCoreProjectFile": "true",
             "targetFramework":    "netstandard2.0;net48",
@@ -258,6 +258,9 @@ LANGUAGES: dict[str, LanguageConfig] = {
         output_subdir="python",
         package_key="packageName",
         package_fn=python_package,
+        # Python Commons imports are still not handled reliably by the
+        # OpenAPI Generator's import-mapping support; keep its legacy mapping
+        # shape until that generator limitation is addressed.
         commons_package=python_package(""),
         import_pattern="{class_name}={commons_package}.{class_name}",
         extra_props={

@@ -74,3 +74,161 @@ components:
             items:
               type: number
               format: double
+
+    # General ASM datacube representation. The legacy DatacubeData above stays
+    # unchanged for existing generated consumers; new instruments can use this
+    # schema when data is represented with strings, booleans, functions, or points.
+    AsmDatacube:
+      type: object
+      properties:
+        cube-structure:
+          $ref: '#/components/schemas/AsmDatacubeStructure'
+        data:
+          $ref: '#/components/schemas/AsmDatacubeData'
+        label:
+          type: string
+
+    AsmDatacubeStructure:
+      type: object
+      properties:
+        dimensions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AsmDatacubeComponent'
+        measures:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AsmDatacubeComponent'
+      required: [dimensions, measures]
+
+    AsmDatacubeComponent:
+      type: object
+      properties:
+        "@componentDatatype":
+          type: string
+          enum: [double, float, decimal, integer, byte, int, short, long, string, boolean, dateTime]
+          default: double
+        concept:
+          type: string
+        scale:
+          type: string
+          enum: [nominal, ordinal, cardinal, interval, range]
+        unit:
+          type: string
+        "$asm.fill-value":
+          anyOf:
+            - type: string
+            - type: number
+            - type: integer
+            - type: boolean
+      required: ["@componentDatatype", concept]
+
+    AsmDatacubeData:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AsmDatacubeDimensionData'
+        - $ref: '#/components/schemas/AsmDatacubeMeasureData'
+
+    AsmDatacubeDimensionData:
+      type: object
+      properties:
+        dimensions:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/AsmDatacubeDimensionArray'
+              - $ref: '#/components/schemas/AsmDatacubeFunction'
+      required: [dimensions]
+
+    AsmDatacubeDimensionArray:
+      oneOf:
+        - $ref: '#/components/schemas/AsmNumberArray'
+        - $ref: '#/components/schemas/AsmBooleanArray'
+        - $ref: '#/components/schemas/AsmStringArray'
+
+    AsmDatacubeFunction:
+      type: object
+      properties:
+        incr:
+          type: number
+          default: 1
+        length:
+          type: number
+        start:
+          type: number
+          default: 1
+        type:
+          type: string
+          enum: [linear, logarithmic]
+          default: linear
+
+    AsmDatacubeMeasureData:
+      oneOf:
+        - type: object
+          properties:
+            measures:
+              type: array
+              items:
+                $ref: '#/components/schemas/AsmDatacubeMeasureArray'
+          required: [measures]
+        - type: object
+          properties:
+            points:
+              type: array
+              items:
+                $ref: '#/components/schemas/AsmDatacubeTuple'
+          required: [points]
+
+    AsmDatacubeMeasureArray:
+      oneOf:
+        - $ref: '#/components/schemas/AsmNumberOrNullArray'
+        - $ref: '#/components/schemas/AsmBooleanOrNullArray'
+        - $ref: '#/components/schemas/AsmStringOrNullArray'
+
+    AsmNumberArray:
+      type: array
+      items:
+        type: number
+
+    AsmBooleanArray:
+      type: array
+      items:
+        type: boolean
+
+    AsmStringArray:
+      type: array
+      items:
+        type: string
+
+    AsmNumberOrNullArray:
+      type: array
+      items:
+        oneOf:
+          - type: number
+          - type: 'null'
+
+    AsmBooleanOrNullArray:
+      type: array
+      items:
+        oneOf:
+          - type: boolean
+          - type: 'null'
+
+    AsmStringOrNullArray:
+      type: array
+      items:
+        oneOf:
+          - type: string
+          - type: 'null'
+
+    AsmDatacubeTuple:
+      type: array
+      items:
+        anyOf:
+          - type: number
+          - type: boolean
+          - type: string
+          - type: 'null'

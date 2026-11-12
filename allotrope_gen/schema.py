@@ -21,11 +21,9 @@ import yaml
 
 from .config import COMMON_YAML_FILES
 
-# Pre-compiled pattern that matches $ref values pointing to commons files:
-#   $ref: './common.yaml#/components/schemas/Foo'
-#   $ref: './datacube.yaml#/components/schemas/Foo'
+# Pre-compiled pattern for parsed $ref values that point to commons files.
 _COMMONS_REF_RE = re.compile(
-    r'\$ref:\s*[\'"]?\./(?:common|datacube)\.yaml#/components/schemas/(\w+)'
+    r"^\./(?:common|datacube)\.yaml#/components/schemas/(\w+)$"
 )
 
 
@@ -81,11 +79,26 @@ def schemas_referenced_from_commons(
         Intersection of commons-defined names and names referenced by the spec.
         Returns an empty set if *spec_path* does not exist.
     """
-    common = collect_common_schemas(common_files)
     if not spec_path.exists():
         return set()
-    raw = spec_path.read_text(encoding="utf-8")
-    referenced = set(_COMMONS_REF_RE.findall(raw))
+    common = collect_common_schemas(common_files)
+
+    def visit(node: object) -> set[str]:
+        referenced: set[str] = set()
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str):
+                match = _COMMONS_REF_RE.fullmatch(ref)
+                if match:
+                    referenced.add(match.group(1))
+            for value in node.values():
+                referenced.update(visit(value))
+        elif isinstance(node, list):
+            for value in node:
+                referenced.update(visit(value))
+        return referenced
+
+    referenced = visit(load_yaml(spec_path))
     return common & referenced
 
 

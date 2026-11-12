@@ -1,0 +1,9 @@
+---
+servers:
+- url: "/"
+openapi: "3.1.0"
+paths: {}
+info:
+  title: "merged spec"
+  description: "merged spec"
+  version: "1.0.0"

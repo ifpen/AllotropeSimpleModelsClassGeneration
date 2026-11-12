@@ -8,6 +8,23 @@ components:
     QuantityValue:
       type: object
       properties:
+        "@type":
+          type: string
+        has statistic datum role:
+          enum:
+            - arithmetic mean role
+            - median role
+            - relative standard deviation role
+            - skewness role
+            - standard deviation role
+            - variance role
+            - maximum value role
+            - minimum value role
+            - initial value role
+            - final value role
+            - geometric mean role
+            - coefficient of variation role
+            - median absolute deviation role
         value:
           type: number
           format: double
@@ -16,6 +33,117 @@ components:
       required:
         - unit
         - value
+
+    StringValue:
+      description: ASM string value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: string
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: string
+          required: ["@type", value]
+
+    DoubleValue:
+      description: ASM double value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: number
+          format: double
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: number
+              format: double
+          required: ["@type", value]
+
+    BooleanValue:
+      description: ASM boolean value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: boolean
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: boolean
+          required: ["@type", value]
+
+    DateTimeValue:
+      description: ASM date-time value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: string
+          format: date-time
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: string
+              format: date-time
+          required: ["@type", value]
+
+    DateTimeStampValue:
+      description: ASM date-time-stamp value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: string
+          format: date-time
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: string
+              format: date-time
+          required: ["@type", value]
+
+    IntegerValue:
+      description: ASM integer value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: integer
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: integer
+          required: ["@type", value]
+
+    AsmManifest:
+      description: ASM manifest identifier or embedded manifest document.
+      oneOf:
+        - type: string
+          format: uri
+        - type: object
+          properties:
+            "@id":
+              type: string
+              format: uri
+            "@type":
+              type: string
+              format: uri
+            json-schemas:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                format: uri
+            shapes:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                format: uri
+            vocabulary:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                format: uri
+          required: [json-schemas, vocabulary]
 
     MetersQuantityValue:
       allOf:

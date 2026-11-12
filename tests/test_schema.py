@@ -126,6 +126,41 @@ class TestSchemasReferencedFromCommons:
         result = schemas_referenced_from_commons(spec, [datacube_yaml])
         assert result == {"Cube"}
 
+    def test_legacy_datacube_data_ref_does_not_infer_wrapper(self, tmp_path: Path):
+        datacube = tmp_path / "datacube.yaml"
+        datacube.write_text(
+            "openapi: '3.1.0'\ncomponents:\n  schemas:\n"
+            "    DatacubeData:\n      type: object\n"
+            "    datacubeData:\n      type: object\n",
+            encoding="utf-8",
+        )
+        spec = tmp_path / "spec_legacy_datacube.yaml"
+        spec.write_text(
+            "openapi: '3.1.0'\ncomponents:\n  schemas:\n"
+            "    M:\n      $ref: './datacube.yaml#/components/schemas/datacubeData'\n",
+            encoding="utf-8",
+        )
+        assert schemas_referenced_from_commons(spec, [datacube]) == {"datacubeData"}
+
+    def test_matches_refs_with_inline_sibling_properties(self, tmp_path: Path, common_yaml: Path):
+        spec = tmp_path / "spec_inline_ref.yaml"
+        spec.write_text(
+            "openapi: '3.1.0'\ncomponents:\n  schemas:\n"
+            "    M:\n      type: object\n      properties:\n"
+            "        external:\n          $ref: './common.yaml#/components/schemas/Foo'\n",
+            encoding="utf-8",
+        )
+        assert schemas_referenced_from_commons(spec, [common_yaml]) == {"Foo"}
+
+    def test_matches_double_quoted_ref(self, tmp_path: Path, common_yaml: Path):
+        spec = tmp_path / "spec_double_quoted_ref.yaml"
+        spec.write_text(
+            'openapi: "3.1.0"\ncomponents:\n  schemas:\n'
+            '    M:\n      $ref: "./common.yaml#/components/schemas/Foo"\n',
+            encoding="utf-8",
+        )
+        assert schemas_referenced_from_commons(spec, [common_yaml]) == {"Foo"}
+
 
 # ---------------------------------------------------------------------------
 # merged_commons_yaml
