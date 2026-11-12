@@ -176,10 +176,12 @@ class TestSpecs:
             commons_package=LANGUAGES["csharp"].commons_package,
         ) == "QuantityValue=IFPEN.AllotropeConverters.AllotropeModels.Model.QuantityValue"
 
-        technique = root["properties"]["liquid chromatography aggregate document"]
-        device_system = technique["properties"]["device system document"][
-            "properties"
-        ]
+        technique_ref = root["properties"]["liquid chromatography aggregate document"]["$ref"]
+        assert technique_ref == "#/components/schemas/liquidChromatographyAggregateDocument"
+        technique = schemas[technique_ref.rsplit("/", 1)[-1]]
+        device_system_ref = technique["properties"]["device system document"]["$ref"]
+        assert device_system_ref == "#/components/schemas/deviceSystemDocument"
+        device_system = schemas[device_system_ref.rsplit("/", 1)[-1]]["properties"]
         assert {
             "asset management identifier", "brand name", "custom information aggregate document",
             "description", "device document", "device identifier", "equipment serial number",
@@ -187,16 +189,20 @@ class TestSpecs:
             "pump model number",
         } <= device_system.keys()
 
-        aggregate = root["properties"]["liquid chromatography aggregate document"]
+        aggregate = schemas[
+            root["properties"]["liquid chromatography aggregate document"]["$ref"].rsplit("/", 1)[-1]
+        ]
         assert "liquid chromatography document" in aggregate["properties"]
         assert "liquid chromatography document" in aggregate["required"]
         lc_item = aggregate["properties"]["liquid chromatography document"]["items"]
-        assert "measurement aggregate document" in lc_item["properties"]
-        assert "fraction aggregate document" in lc_item["properties"]
-        assert "measurement aggregate document" in lc_item["required"]
+        assert lc_item["$ref"] == "#/components/schemas/liquidChromatographyDocument"
+        lc_document = schemas["liquidChromatographyDocument"]
+        assert "measurement aggregate document" in lc_document["properties"]
+        assert "fraction aggregate document" in lc_document["properties"]
+        assert "measurement aggregate document" in lc_document["required"]
 
         measurement_aggregate = schemas["measurementAggregateDocument"]
-        assert lc_item["properties"]["measurement aggregate document"]["$ref"] == (
+        assert lc_document["properties"]["measurement aggregate document"]["$ref"] == (
             "#/components/schemas/measurementAggregateDocument"
         )
         assert measurement_aggregate["type"] == "object"
@@ -223,7 +229,9 @@ class TestSpecs:
         # directly on the item rather than hidden in a root-level overlay.
         measurement_item = schemas["LiquidChromatographyMeasurementDocument"]
         measurement_properties = measurement_item["properties"]
-        sample_document = measurement_properties["sample document"]
+        sample_ref = measurement_properties["sample document"]["$ref"]
+        assert sample_ref == "#/components/schemas/SampleDocument"
+        sample_document = schemas[sample_ref.rsplit("/", 1)[-1]]
         assert sample_document["properties"]["sample identifier"] == {
             "type": "string",
             "description": (
@@ -259,9 +267,11 @@ class TestSpecs:
             "mass spectrum data cube",
             "three-dimensional mass spectrum data cube",
         } <= measurement_properties.keys()
-        assert measurement_properties["chromatography column document"]["properties"][
-            "chromatography column particle size"
-        ]["$ref"] == "./common.yaml#/components/schemas/MicrometersQuantityValue"
+        column_ref = measurement_properties["chromatography column document"]["$ref"]
+        column = schemas[column_ref.rsplit("/", 1)[-1]]
+        assert column["properties"]["chromatography column particle size"]["$ref"] == (
+            "./common.yaml#/components/schemas/MicrometersQuantityValue"
+        )
         assert not any(
             name.endswith("MeasurementDocumentItems")
             or name.startswith("ChromatographyREC202609")

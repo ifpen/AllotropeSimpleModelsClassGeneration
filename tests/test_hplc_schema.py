@@ -210,6 +210,28 @@ def test_hplc_core_components_are_root_reachable():
     assert set(schemas) == reachable
 
 
+def test_hplc_named_components_keep_generator_safe_composition():
+    schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+
+    # The log's HPLC-specific volume unit belongs on the named record, not as
+    # a sibling overlay on its CoreLog reference.
+    log = schemas["liquidChromatographyDocument"]["properties"]["log"]
+    assert log == {"$ref": "#/components/schemas/CoreLog"}
+    elapsed_volume = schemas["CoreLogEntry"]["properties"]["elapsed volume"]
+    assert elapsed_volume["properties"]["unit"]["enum"] == ["mL"]
+
+    # Keep the accepted time/volume units without external refs in oneOf
+    # branches, which the Python generator cannot resolve.
+    peak = schemas["PeakDocument"]["properties"]
+    for name in ("peak start", "peak end"):
+        alternatives = peak[name]["oneOf"]
+        assert [branch["properties"]["unit"]["enum"][0] for branch in alternatives] == [
+            "s",
+            "mL",
+        ]
+        assert all("$ref" not in branch for branch in alternatives)
+
+
 def test_hplc_uses_shared_unit_quantity_schemas_when_available():
     spec = load_yaml(SPECS["hplc"])
     schemas = spec["components"]["schemas"]
@@ -324,9 +346,10 @@ def test_hplc_projection_includes_official_lc_root_property_paths():
         "detector model number",
         "pump model number",
     }
-    generated_device = schemas["liquidChromatographySimpleModel"]["properties"][
-        "liquid chromatography aggregate document"
-    ]["properties"]["device system document"]["properties"]
+    root = schemas["liquidChromatographySimpleModel"]
+    aggregate = schemas[root["properties"]["liquid chromatography aggregate document"]["$ref"].rsplit("/", 1)[-1]]
+    device_ref = aggregate["properties"]["device system document"]["$ref"]
+    generated_device = schemas[device_ref.rsplit("/", 1)[-1]]["properties"]
     assert expected_device <= generated_device.keys()
 
     official_device = official["$defs"][
@@ -354,14 +377,17 @@ def test_hplc_projection_includes_official_lc_root_property_paths():
     assert root["properties"]["$asm.manifest"]["$ref"] == (
         "./common.yaml#/components/schemas/AsmManifest"
     )
-    lc_item = root["properties"]["liquid chromatography aggregate document"][
-        "properties"
-    ]["liquid chromatography document"]["items"]
-    assert "measurement aggregate document" in lc_item["properties"]
-    assert "fraction aggregate document" in lc_item["properties"]
-    assert "measurement aggregate document" in lc_item["required"]
+    root_aggregate = schemas[
+        root["properties"]["liquid chromatography aggregate document"]["$ref"].rsplit("/", 1)[-1]
+    ]
+    lc_item = root_aggregate["properties"]["liquid chromatography document"]["items"]
+    assert lc_item["$ref"] == "#/components/schemas/liquidChromatographyDocument"
+    lc_document = schemas["liquidChromatographyDocument"]
+    assert "measurement aggregate document" in lc_document["properties"]
+    assert "fraction aggregate document" in lc_document["properties"]
+    assert "measurement aggregate document" in lc_document["required"]
     measurement_aggregate = schemas["measurementAggregateDocument"]
-    assert lc_item["properties"]["measurement aggregate document"]["$ref"] == (
+    assert lc_document["properties"]["measurement aggregate document"]["$ref"] == (
         "#/components/schemas/measurementAggregateDocument"
     )
     assert measurement_aggregate["required"] == ["measurement document"]
@@ -376,7 +402,8 @@ def test_hplc_projection_includes_official_lc_root_property_paths():
     measurement_item = schemas["LiquidChromatographyMeasurementDocument"]
     assert "device control aggregate document" in measurement_item["required"]
     assert "chromatography column document" in measurement_item["required"]
-    sample_document = measurement_item["properties"]["sample document"]
+    sample_ref = measurement_item["properties"]["sample document"]["$ref"]
+    sample_document = schemas[sample_ref.rsplit("/", 1)[-1]]
     assert sample_document["properties"]["sample identifier"] == {
         "type": "string",
         "description": (
@@ -402,19 +429,22 @@ def test_hplc_projection_includes_official_lc_root_property_paths():
     } <= measurement_item["properties"].keys()
     assert "chromatography column document" in measurement_item["properties"]
     assert "injection document" in measurement_item["properties"]
-    particle_size = measurement_item["properties"]["chromatography column document"][
-        "properties"
-    ]["chromatography column particle size"]
+    column_ref = measurement_item["properties"]["chromatography column document"]["$ref"]
+    column = schemas[column_ref.rsplit("/", 1)[-1]]
+    particle_size = column["properties"]["chromatography column particle size"]
     assert particle_size["$ref"] == (
         "./common.yaml#/components/schemas/MicrometersQuantityValue"
     )
-    peak_properties = (
-        measurement_item["properties"]["processed data aggregate document"][
-            "properties"
-        ]["processed data document"]["items"]["properties"]["peak list"][
-            "properties"
-        ]["peak"]["items"]["properties"]
-    )
+    measurement_processed = schemas[
+        measurement_item["properties"]["processed data aggregate document"]["$ref"].rsplit("/", 1)[-1]
+    ]
+    processed_item_ref = measurement_processed["properties"]["processed data document"]["items"]["$ref"]
+    processed_item = schemas[processed_item_ref.rsplit("/", 1)[-1]]
+    peak_list_ref = processed_item["properties"]["peak list"]["$ref"]
+    peak_list = schemas[peak_list_ref.rsplit("/", 1)[-1]]
+    peak_properties = schemas[peak_list["properties"]["peak"]["items"]["$ref"].rsplit("/", 1)[-1]][
+        "properties"
+    ]
     assert peak_properties["peak area"]["$ref"] == (
         "./common.yaml#/components/schemas/QuantityValue"
     )
