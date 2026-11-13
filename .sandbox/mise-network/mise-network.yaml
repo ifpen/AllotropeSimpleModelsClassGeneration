@@ -1,7 +1,7 @@
 # syntax=docker/sandbox-kit:3
 schemaVersion: "3"
 displayName: Allotrope development tool downloads
-description: Egress hosts used to install this project's pinned mise toolchain.
+description: Egress hosts used to install this project's pinned mise toolchain and resolve ASM ontology descriptions.
 kind: mixin
 
 capabilities:
@@ -14,5 +14,6 @@ capabilities:
           - pypi.org
           - files.pythonhosted.org
           - registry.npmjs.org
+          - www.ebi.ac.uk
           - repo1.maven.org
           - repo.maven.apache.org

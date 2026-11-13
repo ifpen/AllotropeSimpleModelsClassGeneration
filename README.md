@@ -20,6 +20,16 @@ Complete API documentation for all supported languages is available here:
 
 This project aims to create libraries of classes that are compatible with the ASM JSON files (ie. a compliant JSON file can be deserialized into one of the classes)
 
+Generated classes are intended to be understandable data models, not literal translations
+of every JSON Schema constraint. Prefer named, flat object schemas with simple property
+types and enums. Avoid `oneOf`, `anyOf`, and `allOf` when they create anonymous or deeply
+nested generated classes; if needed, accept less cross-field validation rather than
+encoding every permitted property combination. For example, GC chromatogram dimensions
+use independent concept and unit enums instead of a union of retention-time/seconds and
+retention-volume/milliliters variants. Keep property names and value shapes compatible
+with the ASM examples, and add tests to prevent accidental schema complexity from
+returning.
+
 Neither the project nor the libraries are endorsed by the Allotrope Foundation.
 
 
@@ -170,6 +180,33 @@ files from `target/generated-sources/`; generate the desired modules first.
 Docker is used for **client build verification**, not for `generate.py` itself,
 so Python, Node.js/npm, Java, and the generator CLI are still needed on the host
 to generate the sources.
+
+During instrument-spec generation, missing field descriptions are resolved from
+the Allotrope Foundation Ontology through the EMBL-EBI OLS API. The first run
+downloads the ontology in a few paginated requests and caches it under
+`target/ontology-cache/`; subsequent and offline runs reuse that cache. Existing
+field descriptions are preserved, and fields without an unambiguous ontology
+definition are left unchanged with a warning. Docker Sandbox users need egress
+to `www.ebi.ac.uk` for the initial ontology download.
+
+#### Adding descriptions for new fields
+
+Add the new property to the instrument OpenAPI YAML as usual, then run generation
+for that spec (for example, `python generate.py --specs gc --langs java`). The
+generation step enriches missing descriptions in the YAML before invoking the
+client generator; no separate enrichment command is required. A `--dry-run`
+prints generator commands but does **not** enrich or edit the YAML.
+
+When available, use the ASM `$asm.property-class` IRI to identify a field's
+ontology term. Otherwise enrichment accepts only a unique exact ontology-label
+match or a safe alias supported by the checked-in official LC reference. Existing
+non-empty descriptions are kept. Pure `$ref` properties are left untouched to
+preserve generator-safe reference shapes; add descriptions to the referenced
+schema itself if needed. Fields without a reliable match produce a warning and
+are left unchanged. If a new official LC property needs alias resolution, update
+`src/main/resources/_official_lc_schema_reference.json` from the authoritative
+ASM schema and rerun generation. The cache is disposable and can be removed to
+force a fresh OLS download.
 
 Generated sources are build artifacts under `target/generated-sources/` and
 are not committed. Registry publication is performed by the repository's CI

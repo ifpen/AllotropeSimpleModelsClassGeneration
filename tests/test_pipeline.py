@@ -116,11 +116,17 @@ class TestGenerateCommons:
 
 
 class TestGenerateSpecs:
+    @patch("allotrope_gen.pipeline.enrich_spec_descriptions")
     @patch("allotrope_gen.pipeline.run", return_value=True)
     @patch("allotrope_gen.pipeline.schemas_referenced_from_commons", return_value={"Foo"})
     @patch("allotrope_gen.pipeline.patch_java_pom")
     def test_generate_specs_success(
-        self, mock_patch: MagicMock, mock_refs: MagicMock, mock_run: MagicMock, tmp_path: Path
+        self,
+        mock_patch: MagicMock,
+        mock_refs: MagicMock,
+        mock_run: MagicMock,
+        mock_enrich: MagicMock,
+        tmp_path: Path,
     ):
         dummy_spec = tmp_path / "gc.yaml"
         dummy_spec.write_text("openapi: 3.1.0", encoding="utf-8")
@@ -133,6 +139,7 @@ class TestGenerateSpecs:
             assert ok is True
             assert mock_run.call_count == 2
             mock_patch.assert_called_once()  # Called only for Java
+            mock_enrich.assert_called_once_with(dummy_spec)
 
     @patch("allotrope_gen.pipeline.run", return_value=True)
     def test_missing_spec_file_fails(self, mock_run: MagicMock, tmp_path: Path):

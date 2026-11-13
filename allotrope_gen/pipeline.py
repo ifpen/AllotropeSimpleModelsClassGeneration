@@ -21,6 +21,7 @@ from pathlib import Path
 
 from .command import build_cmd, build_commons_cmd
 from .config import COMMON_YAML_FILES, LANGUAGES, OUTPUT, SPECS, LanguageConfig
+from .ontology import enrich_spec_descriptions
 from .patch import patch_java_pom
 from .schema import merged_commons_yaml, schemas_referenced_from_commons
 
@@ -159,6 +160,9 @@ def generate_specs(
             print(f"[ERROR] Spec file not found: {spec_path}", file=sys.stderr)
             all_ok = False
             continue
+
+        if not dry_run:
+            enrich_spec_descriptions(spec_path)
 
         common_schemas = schemas_referenced_from_commons(spec_path)
         print(f"\n[{spec}] common schemas referenced: {sorted(common_schemas)}")

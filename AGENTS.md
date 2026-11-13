@@ -16,7 +16,7 @@ libraries in four languages:
 
 The pipeline splits schemas into two layers:
 
-- **Commons** — shared schemas defined in `common.yaml` / `datacube.yaml`; published once as
+- **Commons** — shared schemas defined in `common.yaml`, `datacube.yaml`, and `core.yaml`; published once as
   a base package (e.g. `allotrope-models-commons`).
 - **Instrument specs** — one YAML file per instrument type (e.g. `gc.yaml`); each spec
   `$ref`s commons schemas via relative paths and is published as a separate package.
@@ -46,7 +46,8 @@ AllotropeSimpleModelsClassGeneration/
 │       └── resources/
 │           ├── common.yaml        # Shared ASM schemas (QuantityValue, units…)
 │           ├── datacube.yaml      # Datacube-related shared schemas
-│           ├── gc.yaml            # Gas Chromatography instrument spec
+│           ├── core.yaml          # Shared ASM core and hierarchy models
+│           ├── gc.yaml            # Gas Chromatography REC/2026/09 instrument spec
 │           └── templates/
 │               └── java/          # Mustache overrides for the Java generator
 ├── tests/                         # Unit/integration test suite
@@ -116,6 +117,23 @@ On **Windows**, `generate.py` automatically invokes `openapi-generator-cli.cmd`
 (the npm `.cmd` wrapper) instead of the bare executable. Do not change this unless
 you also update the `_generator_cli()` function.
 
+Instrument-spec generation enriches missing field descriptions from the current
+Allotrope Foundation Ontology using the EMBL-EBI OLS API (`www.ebi.ac.uk`). The
+ontology is downloaded in a few paginated requests and cached at
+`target/ontology-cache/afo-terms.json`; normal repeat and offline runs reuse the
+cache. Existing non-empty descriptions are not changed. The Docker Sandbox
+network policy must allow `www.ebi.ac.uk` for the first lookup.
+
+When adding instrument fields, run generation for the affected spec to enrich
+missing descriptions (e.g. `python generate.py --specs gc --langs java`). This
+enrichment edits the source YAML before client generation; `--dry-run` does not
+run it. Prefer an exact `$asm.property-class` IRI. Otherwise the resolver uses an
+unambiguous exact ontology label or a unique alias supported by the official LC
+reference file. Pure `$ref` properties are deliberately unchanged; document the
+referenced schema instead. Unresolved fields warn and remain unchanged. Refresh
+the official LC reference JSON from an authoritative ASM schema when new property
+class mappings are needed; remove the ontology cache to force a fresh lookup.
+
 ### Docker Sandbox development
 
 The repository provides `sbxenv.yaml` for a Docker Sandbox using the published
@@ -162,19 +180,23 @@ the host prerequisites above.
 
 ```
 common.yaml ──┐
-datacube.yaml ─┤─ merged_commons_yaml() ──► openapi-generator ──► commons/{lang}/
+datacube.yaml ─┤
+core.yaml ─────┘─ merged_commons_yaml() ──► openapi-generator ──► commons/{lang}/
                │
 gc.yaml ────────┤─ schemas_referenced_from_commons()
                 │   (computes importMappings)
                 └──► openapi-generator ──► gc/{lang}/
 ```
 
-1. **Commons merge** — `generate_commons()` merges `common.yaml` + `datacube.yaml` into a
+1. **Commons merge** — `generate_commons()` merges `common.yaml` + `datacube.yaml` + `core.yaml` into a
    single `commons-merged.yaml` (written under `target/`), then calls the generator once per
    language. Schema name collisions between the two files are a hard error.
 2. **Spec generation** — `generate_specs()` scans each instrument YAML for `$ref`s to
    commons files, builds `--import-mappings` so the generator does not re-emit those classes,
-   then calls the generator.
+   then calls the generator. Before generation, missing inline-field descriptions are resolved
+   by exact `$asm.property-class` IRI when available, an unambiguous exact ontology label, or a
+   unique official-reference alias.
+   Unresolved fields remain unchanged and are reported as warnings.
 3. **Java pom.xml patch** — After Java generation, `patch_java_pom()` idempotently injects
    the `central-publishing-maven-plugin` required for Maven Central deployment.
 
@@ -207,7 +229,7 @@ gc.yaml ────────┤─ schemas_referenced_from_commons()
 
 ## Adding a New Common Schema
 
-Add the schema to `common.yaml` or `datacube.yaml`. It will automatically be included in
+Add the schema to `common.yaml`, `datacube.yaml`, or `core.yaml`. It will automatically be included in
 the commons package. If the same name appears in both files with different content, generation
 will **fail with an error** — resolve the collision manually.
 
@@ -265,7 +287,8 @@ Required GitHub secrets:
 - Specs must be valid **OpenAPI 3.1** documents.
 - Cross-file references to commons must use the relative form:
   `$ref: './common.yaml#/components/schemas/Foo'`
-  or `$ref: './datacube.yaml#/components/schemas/Foo'`.
+  or `$ref: './datacube.yaml#/components/schemas/Foo'` or
+  `$ref: './core.yaml#/components/schemas/Foo'`.
 - Do not inline commons schemas inside instrument specs; always `$ref` them.
 - All schemas should be defined under `components/schemas`; inline schemas in `paths`
   are not used by this pipeline.
@@ -306,10 +329,18 @@ specifications are modeled. They complement (but do not override) the orchestrat
    - Avoid literal translations of complex JSON Schema constructs (`anyOf`, `oneOf`, `allOf`)
      when they add noise. Flatten structures when reasonable and avoid untyped `any`/free-form
      objects.
+   - Prefer a single named object with simple property types and enums over unions or
+     compositions, even when this means giving up cross-field validation. In particular,
+     do not encode allowed concept/unit pairs as `oneOf` branches: independent enums are
+     preferable to generator-created anonymous classes. Apply this to nested data shapes
+     too; use the simplest shape supported by real ASM examples rather than importing a
+     generic schema with unions that expand the generated model graph.
+   - Add regression tests that assert generated-model-facing schemas remain free of
+     unnecessary `oneOf`, `anyOf`, and `allOf` constructs.
 
 2. **OpenAPI file organisation**
    - All specs live under `src/main/resources/`.
-   - Commons bricks (`common.yaml`, `datacube.yaml`) hold shared components. Prefer enriching
+   - Commons bricks (`common.yaml`, `datacube.yaml`, `core.yaml`) hold shared components. Prefer enriching
      these files rather than duplicating structures in instrument specs.
    - Instrument specs (e.g. `gc.yaml`, `dsc.yaml`) should remain focused on a single
      analytical technique and reference commons via `$ref`.
@@ -347,11 +378,17 @@ specifications are modeled. They complement (but do not override) the orchestrat
 
 ## Lessons Learned (Append Only)
 
+- 2026-11-12 - Shared core hierarchy and document schemas live in `core.yaml` and are
+  published through Commons; instrument specs should reference these schemas instead of
+  duplicating core model definitions.
+- 2026-11-12 - GC targets the local Allotrope Simple Model Gas Chromatography
+  `REC/2026/09` tabular schema.
+
 - 2026-06-11 - Strict separation of analytical models: each analytical technique
   (e.g. GC, DSC) must be described in its own dedicated OpenAPI file (`gc.yaml`,
   `dsc.yaml`, etc.) and must never embed the models of another technique in its
   canonical file. Any overlap between techniques can only happen via the commons
-  bricks (`common.yaml`, `datacube.yaml`).
+  bricks (`common.yaml`, `datacube.yaml`, `core.yaml`).
 - 2026-06-11 - Systematic verification of multi-language generation: a task is considered
   complete only after explicitly checking that classes are generated in all configured
   languages (Java, Python, TypeScript, C#, etc.) for each new or modified YAML file.
