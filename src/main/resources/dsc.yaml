@@ -1,120 +1,495 @@
 openapi: 3.1.0
 info:
   title: ASM Differential Scanning Calorimetry Schemas
-  # From $id: .../REC/2021/12/...
-  version: 2021.12.0
-  description: |
-    These schemas (and the generated classes) allow to read and write Allotrope Simple Models (ASM) for Differential Scanning Calorimetry (DSC).
-
-    They rely on the Allotrope Foundation ontologies and data models.
-
-    The classes are generated from the YAML schemas using OpenAPI Generator.
-
-    This file intentionally simplifies the original ASM JSON Schemas and only keeps the core concepts needed for simple models.
-
+  version: 2026.09.0
+  description: >-
+    Simplified Allotrope Simple Model (ASM) Differential Scanning Calorimetry (DSC)
+    schemas based on the REC/2026/09 model. These schemas focus on the root-reachable
+    data model used to read and write DSC results.
 components:
   schemas:
     differentialScanningCalorimetrySimpleModel:
       type: object
+      required:
+        - $asm.manifest
+        - differential scanning calorimetry aggregate document
       properties:
-        differential scanning calorimetry aggregate document:
-          $ref: '#/components/schemas/differentialScanningCalorimetryAggregateDocument'
-        "$asm.manifest":
+        $asm.manifest:
           type: string
           enum:
-            - "http://purl.allotrope.org/manifests/differential-scanning-calorimetry/REC/2021/12/differential-scanning-calorimetry.embed.manifest"
-          default: "http://purl.allotrope.org/manifests/differential-scanning-calorimetry/REC/2021/12/differential-scanning-calorimetry.embed.manifest"
+            - http://purl.allotrope.org/manifests/dsc/REC/2026/09/differential-scanning-calorimetry.manifest
+          default: http://purl.allotrope.org/manifests/dsc/REC/2026/09/differential-scanning-calorimetry.manifest
+        differential scanning calorimetry aggregate document:
+          $ref: '#/components/schemas/differentialScanningCalorimetryAggregateDocument'
 
     differentialScanningCalorimetryAggregateDocument:
       type: object
       properties:
+        analysis sequence document:
+          $ref: ./core.yaml#/components/schemas/AnalysisSequenceDocument
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data system document:
+          $ref: '#/components/schemas/DataSystemDocument'
         device system document:
           $ref: '#/components/schemas/dscDeviceSystemDocument'
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        electronic signature aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicSignatureAggregateDocument
         differential scanning calorimetry document:
+          description: "A differential scanning calorimetry document is a document that encompasses the information associated with a differential scanning calorimetry run. [Allotrope]"
           type: array
           items:
             $ref: '#/components/schemas/differentialScanningCalorimetryDocument'
+        processed data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreProcessedDataAggregateDocument
+        statistics aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreStatisticsAggregateDocument
       required:
-        - device system document
         - differential scanning calorimetry document
+
+    DataSystemDocument:
+      type: object
+      properties:
+        ASM conversion time:
+          $ref: ./common.yaml#/components/schemas/DateTimeValue
+        ASM converter name:
+          description: "An ASM converter name is a written name of some software used to convert data into the Allotrope Simple Model format. [Allotrope]"
+          type: string
+        ASM converter version:
+          description: "An ASM converter version is a software version specifying the version of an ASM converter used to convert data into the Allotrope Simple Model format. [Allotrope]"
+          type: string
+        ASM file identifier:
+          description: "An ASM file identifier is an identifier that identifies some ASM file. [Allotrope]"
+          type: string
+        UNC path:
+          description: "An UNC path is a file path for a file location in a network that is specified by the universal naming convention. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data system instance identifier:
+          description: "A data system instance identifier is an identifier that identifies an instance of some data system. [Allotrope]"
+          type: string
+        database primary key:
+          description: "A database primary key is an identifier of a database record. [Allotrope]"
+          type: string
+        file name:
+          description: "A file name is a name that denotes a file in a file system. It is a local identifier in the scope of the folder the file is located. [Allotrope]"
+          type: string
+        software name:
+          description: "A software name is a name of some software. [Allotrope]"
+          type: string
+        software version:
+          description: "A version number that identifies software. [Allotrope]"
+          type: string
+      required:
+        - ASM file identifier
+        - data system instance identifier
 
     dscDeviceSystemDocument:
       type: object
-      description: Simplified device system description for DSC measurements.
+      description: Device system and equipment used for DSC measurements.
       properties:
         asset management identifier:
-          type: string
-        device identifier:
-          type: string
-        model number:
-          type: string
-        equipment serial number:
-          type: string
-        firmware version:
-          type: string
-        description:
+          description: "An asset management identifier is an identifier that is registered within an asset / inventory management system that identifies an equipment. [Allotrope]"
           type: string
         brand name:
+          description: "A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        description:
+          description: "A description is a proposition about an existing entity. [Allotrope]"
+          type: string
+        device document:
+          description: "A device document is a document that encompasses the information associated with a device. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DscDeviceDocument'
+        device identifier:
+          description: "A device identifier is an identifier that identifies some device. [Allotrope]"
+          type: string
+        equipment serial number:
+          description: "Equipment serial number is a serial number that identifies an equipment used in the measuring by its serial number. [Allotrope]"
+          type: string
+        firmware version:
+          description: "A firmware version is a version number that identifies the firmware of a device. [Allotrope]"
+          type: string
+        model number:
+          description: "A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class. The model number is an alternative term for the class. [IAO]"
           type: string
         product manufacturer:
+          description: "A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic). [Allotrope]"
+          type: string
+
+    DscDeviceDocument:
+      type: object
+      properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        brand name:
+          description: "A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        device identifier:
+          description: "A device identifier is an identifier that identifies some device. [Allotrope]"
+          type: string
+        device type:
+          description: "A device type is a classification datum that classifies the type of device used. [Allotrope]"
+          type: string
+        equipment serial number:
+          description: "Equipment serial number is a serial number that identifies an equipment used in the measuring by its serial number. [Allotrope]"
+          type: string
+        firmware version:
+          description: "A firmware version is a version number that identifies the firmware of a device. [Allotrope]"
+          type: string
+        model number:
+          description: "A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class. The model number is an alternative term for the class. [IAO]"
+          type: string
+        product manufacturer:
+          description: "A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic). [Allotrope]"
+          type: string
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
           type: string
       required:
-        - asset management identifier
+        - '@index'
+        - device type
 
     differentialScanningCalorimetryDocument:
       type: object
       properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
         analyst:
+          description: "Analyst is measurement metadata about the name or identifier of a person that has the role of an analyst in the measurement. [Allotrope]"
           type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        log:
+          $ref: ./core.yaml#/components/schemas/CoreLog
+        measurement aggregate document:
+          $ref: '#/components/schemas/measurementAggregateDocument'
+        submitter:
+          description: "Submitter is measurement metadata about the name or identifier of a person that has the role of a submitter in the measurement. [Allotrope]"
+          type: string
+      required:
+        - '@index'
+        - measurement aggregate document
+
+    measurementAggregateDocument:
+      type: object
+      properties:
         analytical method identifier:
+          description: "An analytical method identifier is an identifier that identifies the analytical method used in a measurement. [Allotrope]"
           type: string
-        assay comment:
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        diagnostic trace aggregate document:
+          $ref: '#/components/schemas/DscDiagnosticTraceAggregateDocument'
+        error aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreErrorAggregateDocument
+        experimental data identifier:
+          description: "An experiment data identifier is an identifier that identifies some experiment data. [Allotrope]"
           type: string
-        assay data identifier:
+        image aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreImageAggregateDocument
+        measurement document:
+          description: "A measurement document is a document that encompasses the information associated with a measurement. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DscMeasurementDocument'
+        method version:
+          description: "A method version is a version number that identifies a method. [Allotrope]"
           type: string
-        asset management identifier:
+        processed data aggregate document:
+          $ref: '#/components/schemas/DscProcessedDataAggregateDocument'
+        statistics aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreStatisticsAggregateDocument
+      required:
+        - measurement document
+
+    DscDiagnosticTraceAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        diagnostic trace document:
+          description: "A diagnostic trace document is a document that encapsulates the information associated with a diagnostic trace. [Allotrope]"
+          type: array
+          items:
+            $ref: '#/components/schemas/DscDiagnosticTraceDocument'
+
+    DscDiagnosticTraceDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        description:
+          description: "A description is a proposition about an existing entity. [Allotrope]"
           type: string
-        balance identifier:
+      required:
+        - description
+
+    DscMeasurementDocument:
+      type: object
+      properties:
+        analytical method identifier:
+          description: "An analytical method identifier is an identifier that identifies the analytical method used in a measurement. [Allotrope]"
           type: string
-        batch identifier:
+          deprecated: true
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        detection type:
+          description: "A detection type is a classification datum that classifies the type of detection performed by the detector.. [Allotrope]"
           type: string
-        container state description:
+        device control aggregate document:
+          $ref: '#/components/schemas/DeviceControlAggregateDocument'
+        differential scanning calorimetry data cube:
+          $ref: '#/components/schemas/DscDataCube'
+        duration:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        error aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreErrorAggregateDocument
+        experimental data identifier:
+          description: "An experiment data identifier is an identifier that identifies some experiment data. [Allotrope]"
           type: string
-        container type:
-          type: string
-        device method identifier:
-          type: string
-        equipment serial number:
-          type: string
-        material identifier:
-          type: string
+          deprecated: true
+        image aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreImageAggregateDocument
         measurement identifier:
+          description: "Measurement id is measurement metadata that identifies the measuring run. [Allotrope]"
           type: string
         measurement time:
+          $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+        method version:
+          description: "A method version is a version number that identifies a method. [Allotrope]"
           type: string
-          format: date-time
+        processed data aggregate document:
+          $ref: '#/components/schemas/DscProcessedDataAggregateDocument'
+        sample document:
+          $ref: '#/components/schemas/DscSampleDocument'
+        statistics aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreStatisticsAggregateDocument
+      required:
+        - device control aggregate document
+        - differential scanning calorimetry data cube
+        - sample document
+
+    DeviceControlAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        device control document:
+          description: "A device control document is a document that encompasses the information associated with control of a device. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DeviceControlDocument'
+      required:
+        - device control document
+
+    DeviceControlDocument:
+      type: object
+      properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        brand name:
+          description: "A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        detection type:
+          description: "A detection type is a classification datum that classifies the type of detection performed by the detector.. [Allotrope]"
+          type: string
+        detector sampling rate setting:
+          $ref: ./common.yaml#/components/schemas/HertzQuantityValue
+        device identifier:
+          description: "A device identifier is an identifier that identifies some device. [Allotrope]"
+          type: string
+        device type:
+          description: "A device type is a classification datum that classifies the type of device used. [Allotrope]"
+          type: string
+        duration setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        equipment serial number:
+          description: "Equipment serial number is a serial number that identifies an equipment used in the measuring by its serial number. [Allotrope]"
+          type: string
+        firmware version:
+          description: "A firmware version is a version number that identifies the firmware of a device. [Allotrope]"
+          type: string
+        model number:
+          description: "A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class. The model number is an alternative term for the class. [IAO]"
+          type: string
+        product manufacturer:
+          description: "A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic). [Allotrope]"
+          type: string
+        profile setting aggregate document:
+          $ref: '#/components/schemas/ProfileSettingAggregateDocument'
+      required:
+        - '@index'
+        - device type
+
+    ProfileSettingAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        profile setting document:
+          description: "A profile setting document is a document that encompasses the information associated with some profile setting. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ProfileSettingDocument'
+      required:
+        - profile setting document
+
+    ProfileSettingDocument:
+      type: object
+      properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        control setting identifier:
+          description: "A control setting identifier is an identifier that identifies some control setting. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        description:
+          description: "A description is a proposition about an existing entity. [Allotrope]"
+          type: string
+        duration setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        end time setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        final setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        initial setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        profile setting feature:
+          description: "A profile setting feature is a facet that defines the feature with the role of a description or classification of a property, characteristic or facet of some data with the contextual role of a setting datum. [Allotrope]"
+          type: string
+        rate setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        start time setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+      required:
+        - '@index'
+        - profile setting feature
+        - initial setting
+        - final setting
+
+    DscSampleDocument:
+      type: object
+      properties:
+        batch identifier:
+          description: "A batch identifier is an identifier that identifies a batch. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        container state description:
+          description: "Container state description is a state facet that describes the state of the container used in the measurement run. [Allotrope]"
+          type: string
+        description:
+          description: "A description is a proposition about an existing entity. [Allotrope]"
+          type: string
+        location identifier:
+          description: "A location identifier is an identifier that identifies some location or site. [Allotrope]"
+          type: string
+        material identifier:
+          description: "A material identifier is a identifier that identifies a material. [Allotrope]"
+          type: string
         sample identifier:
+          description: "Sample id is a measurement metadata that identifies a sample being measured. [Allotrope]"
           type: string
-        sample weight:
-          $ref: './common.yaml#/components/schemas/MilligramsQuantityValue'
+        sample preparation description:
+          description: "A sample preparation description is a description of the sample preparation process. [Allotrope]"
+          type: string
+        sample role type:
+          description: "A sample role type is a classification datum that classifies samples by the type of  sample role in the experiment. [Allotrope]"
+          type: string
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
+          type: string
+      required:
+        - container state description
+        - sample identifier
+
+    DscProcessedDataAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        processed data document:
+          description: "A processed data document is a document that encompasses the output of some data processing operation. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DscProcessedDataDocument'
+      required:
+        - processed data document
+
+    DscProcessedDataDocument:
+      type: object
+      properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data processing document:
+          $ref: ./core.yaml#/components/schemas/DataProcessingDocument
+        data source aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreDataSourceAggregateDocument
+        description:
+          description: "A description is a proposition about an existing entity. [Allotrope]"
+          type: string
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        group identifier:
+          description: "A group identifier is an identifier that identifies some collection or group. [Allotrope]"
+          type: string
+        match result aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreMatchResultAggregateDocument
         peak list:
           $ref: '#/components/schemas/dscPeakList'
       required:
-        - device method identifier
-        - asset management identifier
-        - assay data identifier
-        - material identifier
-        - sample weight
-        - container type
-        - container state description
-        - measurement time
-        - analytical method identifier
-        - sample identifier
+        - '@index'
 
     dscPeakList:
       type: object
       properties:
         differential scanning calorimetry peak:
+          description: "A  differential scanning calorimetry peak is a peak that is the result of a differential scanning calorimetry (DSC) and part of a DSC curve. [Allotrope]"
           type: array
           items:
             $ref: '#/components/schemas/dscPeak'
@@ -122,15 +497,97 @@ components:
     dscPeak:
       type: object
       properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
         glass transition temperature:
-          $ref: './common.yaml#/components/schemas/DegreesCelsiusQuantityValue'
+          $ref: ./common.yaml#/components/schemas/DegreesCelsiusQuantityValue
         heat capacity (dsc):
-          $ref: './common.yaml#/components/schemas/JoulePerGramDegreeCelsiusQuantityValue'
+          $ref: ./common.yaml#/components/schemas/JoulePerGramDegreeCelsiusQuantityValue
+        peak end:
+          $ref: ./common.yaml#/components/schemas/DegreesCelsiusQuantityValue
+        peak identifier:
+          description: "A peak identifier is an identifier that identifies a peak. [Allotrope]"
+          type: string
         peak onset temperature:
-          $ref: './common.yaml#/components/schemas/DegreesCelsiusQuantityValue'
+          $ref: ./common.yaml#/components/schemas/DegreesCelsiusQuantityValue
+        peak position:
+          $ref: ./common.yaml#/components/schemas/DegreesCelsiusQuantityValue
+        peak start:
+          $ref: ./common.yaml#/components/schemas/DegreesCelsiusQuantityValue
         peak temperature:
-          $ref: './common.yaml#/components/schemas/DegreesCelsiusQuantityValue'
+          $ref: ./common.yaml#/components/schemas/DegreesCelsiusQuantityValue
         transition assignment:
+          description: "A transition assignment is a description of the cause of a thermal event occurring in a thermal analysis. [Allotrope]"
           type: string
         transition enthalpy:
-          $ref: './common.yaml#/components/schemas/JoulePerGramQuantityValue'
+          $ref: ./common.yaml#/components/schemas/JoulePerGramQuantityValue
+      required:
+        - '@index'
+
+    DscDataCube:
+      type: object
+      properties:
+        cube-structure:
+          $ref: '#/components/schemas/DscDataCubeStructure'
+        data:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacubeData
+        label:
+          type: string
+      required:
+        - cube-structure
+        - data
+
+    DscDataCubeStructure:
+      type: object
+      properties:
+        dimensions:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            $ref: '#/components/schemas/DscDataCubeDimension'
+        measures:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            $ref: '#/components/schemas/DscDataCubeMeasure'
+      required:
+        - dimensions
+        - measures
+
+    DscDataCubeDimension:
+      type: object
+      properties:
+        '@componentDatatype':
+          type: string
+          enum: [double]
+        concept:
+          description: "An idea or notion; a unit of thought."
+          type: string
+          enum: [temperature]
+        unit:
+          type: string
+          enum: [degC]
+      required:
+        - '@componentDatatype'
+        - concept
+
+    DscDataCubeMeasure:
+      type: object
+      properties:
+        '@componentDatatype':
+          type: string
+          enum: [double]
+        concept:
+          description: "An idea or notion; a unit of thought."
+          type: string
+          enum: [heat capacity]
+        unit:
+          type: string
+          enum: [W/g]
+      required:
+        - '@componentDatatype'
+        - concept

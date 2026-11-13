@@ -35,6 +35,7 @@ OUTPUT: Path = ROOT / "target" / "generated-sources"
 COMMON_YAML_FILES: list[Path] = [
     RESOURCES / "common.yaml",
     RESOURCES / "datacube.yaml",
+    RESOURCES / "core.yaml",
 ]
 
 #: Instrument specs to generate.

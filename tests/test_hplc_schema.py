@@ -216,8 +216,9 @@ def test_hplc_named_components_keep_generator_safe_composition():
     # The log's HPLC-specific volume unit belongs on the named record, not as
     # a sibling overlay on its CoreLog reference.
     log = schemas["liquidChromatographyDocument"]["properties"]["log"]
-    assert log == {"$ref": "#/components/schemas/CoreLog"}
-    elapsed_volume = schemas["CoreLogEntry"]["properties"]["elapsed volume"]
+    assert log == {"$ref": "./core.yaml#/components/schemas/CoreLog"}
+    core = load_yaml(SPECS["hplc"].parent / "core.yaml")["components"]["schemas"]
+    elapsed_volume = core["CoreLogEntry"]["properties"]["elapsed volume"]
     assert elapsed_volume["properties"]["unit"]["enum"] == ["mL"]
 
     # Keep the accepted time/volume units without external refs in oneOf
@@ -374,8 +375,10 @@ def test_hplc_projection_includes_official_lc_root_property_paths():
         for path in generated_paths
     )
     root = schemas["liquidChromatographySimpleModel"]
-    assert root["properties"]["$asm.manifest"]["$ref"] == (
-        "./common.yaml#/components/schemas/AsmManifest"
+    manifest = root["properties"]["$asm.manifest"]
+    assert manifest["type"] == "string"
+    assert manifest["default"].endswith(
+        "/liquid-chromatography.manifest"
     )
     root_aggregate = schemas[
         root["properties"]["liquid chromatography aggregate document"]["$ref"].rsplit("/", 1)[-1]

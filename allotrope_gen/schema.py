@@ -23,7 +23,7 @@ from .config import COMMON_YAML_FILES
 
 # Pre-compiled pattern for parsed $ref values that point to commons files.
 _COMMONS_REF_RE = re.compile(
-    r"^\./(?:common|datacube)\.yaml#/components/schemas/(\w+)$"
+    r"^\./[\w-]+\.yaml#/components/schemas/(\w+)$"
 )
 
 

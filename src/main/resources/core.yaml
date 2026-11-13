@@ -1,0 +1,613 @@
+openapi: 3.1.0
+info:
+  title: ASM Core Schemas
+  version: 2026.09.0
+  description: Shared root-reachable core model components used by instrument specifications.
+components:
+  schemas:
+    CoreCustomInformationAggregateDocument:
+      type: object
+      properties:
+        custom information document:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoreCustomInformationDocument'
+      required:
+      - custom information document
+    CoreCalculatedDataAggregateDocument:
+      type: object
+      properties:
+        calculated data document:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CoreCalculatedDataDocument'
+      required:
+      - calculated data document
+    CoreDataSourceAggregateDocument:
+      type: object
+      properties:
+        data source document:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CoreDataSourceDocument'
+      required:
+      - data source document
+    CoreElectronicProjectRecord:
+      type: object
+      properties:
+        description: {}
+        start time:
+          $ref: ./common.yaml#/components/schemas/DateTimeValue
+        written name:
+          type: string
+      required:
+      - written name
+    AnalysisSequenceDocument:
+      type: object
+      properties:
+        UNC path:
+          description: "An UNC path is a file path for a file location in a network that is specified by the universal naming convention. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        end time:
+          $ref: ./common.yaml#/components/schemas/DateTimeValue
+        file name:
+          description: "A file name is a name that denotes a file in a file system. It is a local identifier in the scope of the folder the file is located. [Allotrope]"
+          type: string
+        identifier:
+          description: "An identifier is a name that identifies (that is, labels the identity of) either a unique object or a unique class of objects, where the \"object\" or class may be an idea, physical [countable] object (or class thereof), or physical [uncountable] substance (or class thereof). [Wikipedia]"
+          type: string
+        method identifier:
+          description: "A method identifier is an identifier that identifies some plan specification (method, procedure) about some planned process. [Allotrope]"
+          type: string
+        method name:
+          description: "A method name is a name that denotes a plan specification (method). [Allotrope]"
+          type: string
+        start time:
+          $ref: ./common.yaml#/components/schemas/DateTimeValue
+        version number:
+          description: "A version number is an information content entity which is a sequence of characters borne by part of each of a class of manufactured products or its packaging and indicates its order within a set of other products having the same name. [IAO]"
+          type: string
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
+          type: string
+      required:
+      - written name
+    CoreElectronicSignatureAggregateDocument:
+      type: object
+      properties:
+        electronic signature document:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/CoreElectronicSignatureDocument'
+    CoreProcessedDataAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        electronic project record:
+          $ref: '#/components/schemas/CoreElectronicProjectRecord'
+        processed data document:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ProcessedDataDocument'
+      required:
+      - processed data document
+    CoreMatchResultAggregateDocument:
+      type: object
+      properties:
+        match result document:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchResultDocument'
+    CoreStatisticsAggregateDocument:
+      type: object
+      properties:
+        statistics document:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoreStatisticsDocument'
+    CoreLog:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        log entry:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/CoreLogEntry'
+    CoreErrorAggregateDocument:
+      type: object
+      properties:
+        error document:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/CoreErrorDocument'
+    CoreImageAggregateDocument:
+      type: object
+      properties:
+        image document:
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/CoreImageDocument'
+    CoreTNamed:
+      type: string
+      description: A reference to an arbitrary RDF resource identified by a SKOS preferred label. The label MUST be unique.
+    CoreCustomInformationDocument:
+      type: object
+      description: >-
+        Flat custom-information datum model. Datum alternatives are optional independent
+        primitive properties rather than oneOf schemas so generated clients avoid anonymous
+        branch types. This model does not enforce that exactly one datum field is present
+        and does not represent the typed-object alternatives of the ASM scalar value schemas.
+      properties:
+        datum label:
+          type: string
+        description: {}
+        identifier:
+          type: string
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        scalar double datum:
+          type: number
+          format: double
+        unit:
+          type: string
+        scalar string datum:
+          type: string
+        scalar timestamp datum:
+          type: string
+          format: date-time
+        scalar boolean datum:
+          type: boolean
+      required:
+      - datum label
+      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
+    CoreCalculatedDataDocument:
+      type: object
+      properties:
+        calculated data identifier:
+          type: string
+        calculated data name:
+          type: string
+        calculated result:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        calculation description:
+          type: string
+        data source aggregate document:
+          $ref: '#/components/schemas/CoreDataSourceAggregateDocument'
+        electronic project record:
+          $ref: '#/components/schemas/CoreElectronicProjectRecord'
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      required:
+      - calculated data name
+      - calculated result
+      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
+    CoreDataSourceDocument:
+      type: object
+      properties:
+        data source feature:
+          type: string
+        data source identifier:
+          type: string
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      required:
+      - data source identifier
+      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
+    CoreElectronicSignatureDocument:
+      type: object
+      properties:
+        account identifier:
+          type: string
+        identifier:
+          type: string
+        measurement identifier:
+          type: string
+        method identifier:
+          type: string
+        personal name:
+          type: string
+        processed data identifier:
+          type: string
+        signature role type:
+          type: string
+        time:
+          type: string
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      required:
+      - account identifier
+      - personal name
+      - signature role type
+      - time
+      anyOf:
+      - required:
+        - identifier
+      - required:
+        - measurement identifier
+      - required:
+        - processed data identifier
+      - required:
+        - method identifier
+      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
+    CoreStatisticsDocument:
+      type: object
+      properties:
+        statistical feature:
+          type: string
+          enum:
+          - BET C constant
+          - Raman intensity
+          - Raman interferogram intensity
+          - Raman wavenumber shift
+          - Young modulus
+          - abrasion weight
+          - absolute intensity
+          - absolute water content
+          - absorbance
+          - acquisition volume
+          - actual P/P0 result
+          - adsorbed volume at STP
+          - ambient humidity
+          - ambient pressure
+          - ambient temperature
+          - amount of substance
+          - angle
+          - angle of optical rotation
+          - angular velocity
+          - area
+          - attenuation coefficient
+          - average dead cell diameter (cell counter)
+          - average particle size
+          - average total cell circularity
+          - average total cell diameter
+          - average viable cell circularity
+          - background corrected turbidity
+          - birefringence
+          - break strain
+          - break stress
+          - cell path length
+          - chemical shift
+          - chromatography column film thickness
+          - chromatography column length
+          - chromatography column particle size
+          - circularity
+          - coating gap height
+          - coefficient of determination
+          - collision energy
+          - column inner diameter
+          - compartment temperature
+          - concentration
+          - container diameter
+          - container height
+          - degassed sample weight
+          - detector view volume
+          - diameter
+          - dielectric polarization
+          - dilution factor
+          - dilution volume
+          - dispensed volume
+          - dry gas flow rate
+          - dry sample weight
+          - eccentricity
+          - electric charge
+          - electric conductance
+          - electric conductivity
+          - electric current
+          - electric impedance
+          - electric resistance
+          - electric resistivity
+          - electron beam working distance
+          - end height
+          - energy (datum)
+          - enthalpy
+          - enthalpy of fusion
+          - enthalpy of sublimation
+          - enthalpy of vaporization
+          - exhaust gas flow rate
+          - extrapolated moisture content
+          - fill depth
+          - flow rate
+          - flow ratio
+          - fluorescence
+          - foam height
+          - force
+          - fracture energy
+          - glass transition temperature
+          - gloss
+          - gross weight
+          - hardness
+          - heat capacity
+          - heat capacity (dsc)
+          - heat flow
+          - heat seal length
+          - heat transfer coefficient
+          - height
+          - hold-up volume
+          - humidity
+          - image height
+          - image width
+          - incident radiation angle
+          - inlet gas pressure
+          - inner diameter
+          - intensity
+          - isocyanate reservoir temperature
+          - length
+          - linear velocity
+          - liquid height
+          - luminescence
+          - m/z
+          - mass
+          - mass attenuation coefficient
+          - mass change
+          - mass concentration
+          - mass fraction
+          - measurement chamber free space volume
+          - molar attenuation coefficient
+          - molar concentration
+          - molar enthalpy of fusion
+          - molar enthalpy of sublimation
+          - molar enthalpy of vaporization
+          - molar mass
+          - molecular mass
+          - monolayer quantity
+          - normalized foam height
+          - number concentration
+          - osmolality
+          - pCO2
+          - pCO2 (bga)
+          - pH
+          - pO2
+          - pO2 (bga)
+          - partial pressure
+          - particle size
+          - peak analyte amount
+          - peak load force
+          - peak onset temperature
+          - peak temperature
+          - plate heater temperature
+          - plate temperature
+          - plate well count
+          - polarity
+          - polyol reservoir temperature
+          - position count
+          - power
+          - pressure
+          - probe volume
+          - protein attenuation coefficient
+          - purity
+          - qNMR purity result
+          - reference material weight
+          - reflectance
+          - refractive index
+          - relative humidity
+          - relative intensity
+          - relative permittivity
+          - relative pressure (BET)
+          - relative response
+          - relative weight loss on drying
+          - reservoir temperature
+          - rotational speed
+          - sample temperature
+          - sample thickness
+          - sample weight
+          - sample weight before drying
+          - sample width
+          - saturated gas flow rate
+          - saturation vapor pressure
+          - seal initiation temperature
+          - size (datum)
+          - slope
+          - solvent reservoir temperature
+          - specific enthalpy of fusion
+          - specific enthalpy of sublimation
+          - specific enthalpy of vaporization
+          - specific heat capacity
+          - specific rotation
+          - specific surface area
+          - start height
+          - stirring rate
+          - strain
+          - stress
+          - tablet thickness
+          - tare weight
+          - temperature
+          - temperature rate
+          - thermal conductance
+          - thermal conductivity
+          - thickness
+          - titer
+          - torque
+          - total cell diameter
+          - total foam height
+          - total gas flow rate
+          - total material height
+          - transition enthalpy
+          - transmittance
+          - turbidity
+          - velocity
+          - viscosity
+          - void volume
+          - voltage
+          - voltage range
+          - volume
+          - volume concentration
+          - volume fraction
+          - water mass concentration
+          - water mass fraction
+          - wavelength
+          - wavenumber
+          - weight loss
+          - well volume
+          - width
+          - yield strain
+          - yield stress
+      required:
+      - statistical feature
+    CoreLogEntry:
+      type: object
+      properties:
+        author:
+          type: string
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        elapsed time:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+          type: object
+          properties:
+            unit:
+              type: string
+              enum:
+              - min
+        identifier:
+          type: string
+        log source name:
+          type: string
+        observation:
+          type: string
+        scalar timestamp datum:
+          $ref: ./common.yaml#/components/schemas/DateTimeValue
+        elapsed volume:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+          type: object
+          properties:
+            unit:
+              type: string
+              enum:
+              - mL
+      required:
+      - observation
+      - scalar timestamp datum
+    CoreErrorDocument:
+      type: object
+      properties:
+        error:
+          type: string
+        error feature:
+          type: string
+      required:
+      - error
+    CoreImageDocument:
+      type: object
+      properties:
+        experimental data identifier:
+          type: string
+        index:
+          $ref: ./common.yaml#/components/schemas/IntegerValue
+    ProcessedDataDocument:
+      type: object
+      properties:
+        calculated data aggregate document:
+          $ref: '#/components/schemas/CoreCalculatedDataAggregateDocument'
+        custom information aggregate document:
+          $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
+        data processing document:
+          $ref: '#/components/schemas/DataProcessingDocument'
+        data source aggregate document:
+          $ref: '#/components/schemas/CoreDataSourceAggregateDocument'
+        description: {}
+        electronic project record:
+          $ref: '#/components/schemas/CoreElectronicProjectRecord'
+        group identifier:
+          type: string
+        match result aggregate document:
+          $ref: '#/components/schemas/CoreMatchResultAggregateDocument'
+        processed data identifier:
+          type: string
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
+    MatchResultDocument:
+      type: object
+      properties:
+        InChI molecular structure:
+          type: string
+        InChIKey molecular structure:
+          type: string
+        Molfile molecular structure:
+          type: string
+        SMILES molecular structure:
+          type: string
+        conformance assessment:
+          type: string
+        database identifier:
+          type: string
+        description: {}
+        fingerprint identifier:
+          type: string
+        match quality index aggregate document:
+          $ref: '#/components/schemas/MatchQualityIndexAggregateDocument'
+        molecular formula:
+          type: string
+        reference identifier:
+          type: string
+        synonym aggregate document:
+          $ref: '#/components/schemas/SynonymAggregateDocument'
+    DataProcessingDocument:
+      type: object
+      properties:
+        data processing time:
+          $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+        data processing type:
+          type: string
+        method identifier:
+          type: string
+        method name:
+          type: string
+        method version:
+          type: string
+    MatchQualityIndexAggregateDocument:
+      type: object
+      properties:
+        match quality index document:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchQualityIndexDocument'
+    MatchQualityIndexDocument:
+      type: object
+      properties:
+        algorithm name:
+          type: string
+        description: {}
+        lower limit:
+          $ref: ./common.yaml#/components/schemas/DoubleValue
+        match quality index:
+          $ref: ./common.yaml#/components/schemas/DoubleValue
+        upper limit:
+          $ref: ./common.yaml#/components/schemas/DoubleValue
+      required:
+      - match quality index
+    SynonymAggregateDocument:
+      type: object
+      properties:
+        synonym document:
+          type: array
+          items:
+            $ref: '#/components/schemas/SynonymDocument'
+    SynonymDocument:
+      type: object
+      properties:
+        written name:
+          type: string
+      required:
+      - written name

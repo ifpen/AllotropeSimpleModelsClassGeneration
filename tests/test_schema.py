@@ -161,6 +161,21 @@ class TestSchemasReferencedFromCommons:
         )
         assert schemas_referenced_from_commons(spec, [common_yaml]) == {"Foo"}
 
+    def test_matches_ref_to_additional_commons_file(self, tmp_path: Path):
+        core = tmp_path / "core.yaml"
+        core.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n  CoreModel: {type: object}\n",
+            encoding="utf-8",
+        )
+        spec = tmp_path / "spec_core_ref.yaml"
+        spec.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n"
+            "  Model:\n    $ref: './core.yaml#/components/schemas/CoreModel'\n",
+            encoding="utf-8",
+        )
+
+        assert schemas_referenced_from_commons(spec, [core]) == {"CoreModel"}
+
 
 # ---------------------------------------------------------------------------
 # merged_commons_yaml
@@ -182,6 +197,17 @@ class TestMergedCommonsYaml:
         doc = load_yaml(out)
         names = schema_names(doc)
         assert {"Foo", "Bar", "Cube"}.issubset(names)
+
+    def test_merges_core_file(self, tmp_path: Path):
+        core = tmp_path / "core.yaml"
+        core.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n  CoreModel: {type: object}\n",
+            encoding="utf-8",
+        )
+
+        out = merged_commons_yaml(tmp_path, [core])
+
+        assert "CoreModel" in schema_names(load_yaml(out))
 
     def test_identical_duplicate_is_silently_merged(self, tmp_path: Path):
         """The same schema definition in two files should not raise."""

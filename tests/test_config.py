@@ -152,13 +152,14 @@ class TestSpecs:
         schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
         root = schemas["liquidChromatographySimpleModel"]
         assert root["required"] == ["$asm.manifest"]
-        assert root["properties"]["$asm.manifest"]["$ref"] == (
-            "./common.yaml#/components/schemas/AsmManifest"
+        assert root["properties"]["$asm.manifest"]["type"] == "string"
+        assert root["properties"]["$asm.manifest"]["default"].endswith(
+            "/liquid-chromatography.manifest"
         )
 
         commons = schemas_referenced_from_commons(SPECS["hplc"])
         assert {
-            "AsmManifest", "AsmDatacube",
+            "AsmDatacube",
             "DateTimeValue", "QuantityValue",
         } <= commons
         assert "StringValue" not in commons

@@ -191,6 +191,15 @@ components:
               x-enum-varnames: [ Micro_L ]
               x-enum-values: [ "\u03BCL" ]
 
+    MillilitersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "mL" ]
+
     HertzQuantityValue:
       allOf:
         - $ref: '#/components/schemas/QuantityValue'
