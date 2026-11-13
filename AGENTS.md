@@ -35,6 +35,7 @@ AllotropeSimpleModelsClassGeneration/
 ├── openapitools.json              # openapi-generator-cli version pin
 ├── allotrope_gen/                 # Orchestration package
 │   ├── __init__.py                # Package version
+│   ├── asm.py                     # External ASM checkout discovery
 │   ├── cli.py                     # Argument parsing and main orchestrator
 │   ├── command.py                 # Command generator arguments builder
 │   ├── config.py                  # Supported languages, specs, and filesystem config
@@ -57,7 +58,11 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── test_config.py             # Configuration properties tests
 │   ├── test_patch.py              # Java pom.xml patching tests
 │   ├── test_pipeline.py           # Pipeline runner tests
-│   └── test_schema.py             # Schema collision and extraction tests
+│   ├── test_schema.py             # Schema collision and extraction tests
+│   ├── test_asm.py                # External ASM checkout discovery tests
+│   └── test_hplc_schema.py        # ASM-backed HPLC conformance tests
+├── target/
+│   └── asm/                       # Optional full upstream ASM clone (git-ignored)
 ├── .github/
 │   └── workflows/
 │       └── generate.yml           # CI/CD: generate + publish to all registries
@@ -67,8 +72,9 @@ AllotropeSimpleModelsClassGeneration/
         └── gc/{java,typescript,csharp,python}/
 ```
 
-> **`target/` is git-ignored.** Never commit generated sources. The CI workflow republishes
-> them automatically on every push to `main` that touches a `.yaml` spec or `generate.py`.
+> **`target/` is git-ignored.** Never commit generated sources or the separate ASM
+> checkout. The CI workflow republishes generated sources automatically on pushes
+> to `main` that touch a spec or generation code.
 
 ---
 
@@ -129,12 +135,49 @@ missing descriptions (e.g. `python generate.py --specs gc --langs java`). This
 enrichment edits the source YAML before client generation; `--dry-run` does not
 run it. Prefer an exact `$asm.property-class` IRI. Otherwise the resolver uses an
 unambiguous exact ontology label or a unique alias supported by the official LC
-reference file. Pure `$ref` properties are deliberately unchanged; document the
-referenced schema instead. Unresolved fields warn and remain unchanged. Refresh
-the official LC reference JSON from an authoritative ASM schema when new property
-class mappings are needed; remove the ontology cache to force a fresh lookup.
+schema in the ASM checkout. Pure `$ref` properties are deliberately unchanged;
+document the referenced schema instead. Unresolved fields warn and remain
+unchanged. Refresh the ASM checkout when new property-class mappings are needed;
+do not create or update a checked-in copy of an official schema. Remove the
+ontology cache to force a fresh lookup.
 
-### Docker Sandbox development
+### Authoritative ASM source checkout
+
+The full upstream repository at <https://gitlab.com/allotrope-public/asm> is
+the source of truth for released ASM JSON Schemas, examples, manifests, and
+related modeling resources. These are licensed source files: never copy them
+into this repository, even as test fixtures or generated reference files. Read
+them from a separate full Git clone instead. Copy `.env.example` to the
+git-ignored `.env`; its `ASM_REPO=./target/asm` default locates the sandbox
+clone. Relative paths in `.env` resolve from the project root. A process-level
+`ASM_REPO` environment variable overrides the file setting.
+
+In Docker Sandbox, host checkouts are inaccessible. Clone the entire upstream
+repository into the ignored project `target/asm` directory:
+
+```sh
+cp .env.example .env
+mkdir -p target
+git clone https://gitlab.com/allotrope-public/asm.git target/asm
+```
+
+Refresh it before using a newer ASM release, without overwriting local changes:
+
+```sh
+git -C target/asm pull --ff-only
+```
+
+The sandbox network mixin allows `gitlab.com` for this clone and future fetches.
+Keep the full repository, not just the current HPLC schema: agents must consult
+its current schemas, samples, manifests, and other resources when adding a
+technique, updating to a new release, or checking model compatibility. HPLC
+schema conformance tests and ontology property-class alias lookup consume files
+from the checkout directly. HPLC conformance tests require the checkout and
+fail with setup instructions if it is missing. Alias lookup selects the newest
+LC `REC/YYYY/MM` embedded schema present in the clone, so refresh the full clone
+to use a newer release. Clone it before validating any ASM model changes. To
+use a checkout elsewhere, set its path in the ignored `.env`; do not commit a
+machine-specific path.
 
 The repository provides `sbxenv.yaml` for a Docker Sandbox using the published
 OpenCode workload (`agent: opencode`), Docker's published mise v3 mixin, and a
@@ -239,7 +282,7 @@ will **fail with an error** — resolve the collision manually.
 
 The workflow `generate.yml` runs on:
 
-- **Push to `main`** — only when `src/main/resources/**.yaml`, `generate.py`, the `allotrope_gen/` package, or `pyproject.toml` changes.
+- **Push to `main`** — only when `src/main/resources/**.yaml`, `generate.py`, the `allotrope_gen/` package, `pyproject.toml`, or `uv.lock` changes.
 - **Manual trigger** (`workflow_dispatch`) — accepts optional `specs`, `langs`, and
   `dry_run` inputs.
 

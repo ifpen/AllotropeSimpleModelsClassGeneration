@@ -75,14 +75,54 @@ Generate all languages for the HPLC model locally with:
 python generate.py --specs hplc
 ```
 
+### ASM source repository
+
+The complete upstream [ASM repository][asm] is the source of truth for released
+JSON Schemas, example JSON documents, manifests, and related modeling resources.
+Those files are licensed source material: do not copy them into this repository.
+Instead, work from a separate full clone. Copy `.env.example` to `.env`; the
+committed example defaults `ASM_REPO` to `./target/asm`. `.env` is git-ignored.
+Paths in it are relative to the project root. A process-level `ASM_REPO`
+environment variable overrides the `.env` setting.
+
+In Docker Sandboxes, clone the full upstream repository inside the project
+workspace; `target/` is ignored by Git and the sandbox retains it between runs:
+
+```sh
+cp .env.example .env
+mkdir -p target
+git clone https://gitlab.com/allotrope-public/asm.git target/asm
+```
+
+Before modeling against newer releases, refresh the clone without discarding
+local work:
+
+```sh
+git -C target/asm pull --ff-only
+```
+
+Edit the ignored `.env` if the checkout is elsewhere. The full clone—not an
+export of a single schema—is required when adding or updating models, checking real examples,
+or reviewing manifests and other ASM resources. HPLC conformance tests and
+description alias resolution read the relevant files directly from this checkout.
+Alias lookup automatically uses the newest LC `REC/YYYY/MM` schema in the clone;
+refresh the clone to make a newer release available.
+The HPLC conformance tests require this checkout and fail with setup instructions
+if it is missing.
+
+For a checkout outside `target/asm`, set its path in the ignored `.env`, for
+example `ASM_REPO=D:/path/to/asm` on Windows. Do not commit machine-specific
+paths.
+
 ### Docker Sandbox development
 
 The repository includes a Docker Sandbox environment that runs OpenCode with
 the published mise mixin and a small local network-policy mixin. The sandbox
 uses the versions in `.mise.toml` for Python, Node.js, Java, `uv`, and the
-OpenAPI Generator CLI wrapper. The policy allows the download hosts those
-tools need under the sandbox's default deny-by-default egress. This keeps the
-project setup separate from Dockerfiles, Compose, and host-installed SDKs.
+OpenAPI Generator CLI wrapper. Its egress policy allows the tool-download
+hosts, OLS, and GitLab so agents can clone and refresh the complete ASM source
+repository. This keeps project setup separate from Dockerfiles, Compose, and
+host-installed SDKs.
 
 Install Docker Sandboxes on Windows 11, then sign in:
 
@@ -109,6 +149,18 @@ from the lockfile in the OpenCode terminal:
 mise install
 uv sync --locked --all-extras
 ```
+
+Clone the complete ASM repository inside the sandbox workspace before inspecting
+or changing instrument models, or running ASM conformance tests:
+
+```sh
+cp .env.example .env
+mkdir -p target
+git clone https://gitlab.com/allotrope-public/asm.git target/asm
+```
+
+On later sandbox sessions, update it with `git -C target/asm pull --ff-only`.
+The network policy explicitly permits `gitlab.com` for these commands.
 
 Run project tests or generate models inside the sandbox:
 
@@ -183,11 +235,10 @@ to generate the sources.
 
 During instrument-spec generation, missing field descriptions are resolved from
 the Allotrope Foundation Ontology through the EMBL-EBI OLS API. The first run
-downloads the ontology in a few paginated requests and caches it under
-`target/ontology-cache/`; subsequent and offline runs reuse that cache. Existing
-field descriptions are preserved, and fields without an unambiguous ontology
-definition are left unchanged with a warning. Docker Sandbox users need egress
-to `www.ebi.ac.uk` for the initial ontology download.
+downloads the ontology and caches it under `target/ontology-cache/`; subsequent
+and offline runs reuse that cache. Existing field descriptions are preserved,
+and fields without an unambiguous definition are left unchanged with a warning.
+Docker Sandbox egress allows both `www.ebi.ac.uk` and `gitlab.com`.
 
 #### Adding descriptions for new fields
 
@@ -199,13 +250,12 @@ prints generator commands but does **not** enrich or edit the YAML.
 
 When available, use the ASM `$asm.property-class` IRI to identify a field's
 ontology term. Otherwise enrichment accepts only a unique exact ontology-label
-match or a safe alias supported by the checked-in official LC reference. Existing
+match or a safe alias found in the official LC schema in the ASM checkout.
+Refresh the full ASM clone before relying on a newer release. Existing
 non-empty descriptions are kept. Pure `$ref` properties are left untouched to
 preserve generator-safe reference shapes; add descriptions to the referenced
 schema itself if needed. Fields without a reliable match produce a warning and
-are left unchanged. If a new official LC property needs alias resolution, update
-`src/main/resources/_official_lc_schema_reference.json` from the authoritative
-ASM schema and rerun generation. The cache is disposable and can be removed to
+are left unchanged. The ontology cache is disposable and can be removed to
 force a fresh OLS download.
 
 Generated sources are build artifacts under `target/generated-sources/` and

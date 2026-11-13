@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Multi-language code-generation pipeline for Allotrope Simple Models"
 requires-python = ">=3.12"
 license = { text = "CeCILL-2.1" }
-dependencies = ["PyYAML==6.0.3"]
+dependencies = ["PyYAML==6.0.3", "python-dotenv==1.2.1"]
 
 [project.scripts]
 allotrope-gen = "allotrope_gen.cli:main"
@@ -17,6 +17,7 @@ allotrope-gen = "allotrope_gen.cli:main"
 dev = [
     "pytest==9.2.0",
     "pytest-cov==7.1.0",
+    "jsonschema==4.26.0",
     "setuptools==80.9.0",
     "build==1.6.1",
     "twine==6.2.0",

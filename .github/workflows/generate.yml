@@ -9,6 +9,7 @@ on:
       - 'verify_builds.py'
       - 'allotrope_gen/**'
       - 'pyproject.toml'
+      - 'uv.lock'
       - 'requirements*.txt'
       - '.devcontainer/**'
       - '.python-version'

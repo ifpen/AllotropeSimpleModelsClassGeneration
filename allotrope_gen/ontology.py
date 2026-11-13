@@ -22,7 +22,8 @@ from urllib.request import Request, urlopen
 import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
-from .config import OUTPUT, RESOURCES
+from .asm import latest_lc_schema
+from .config import OUTPUT
 
 OLS_API = "https://www.ebi.ac.uk/ols4/api"
 OLS_ONTOLOGY = "afo"
@@ -30,7 +31,6 @@ OLS_PAGE_SIZE = 1000
 OLS_TIMEOUT_SECONDS = 30
 CACHE_PATH = OUTPUT.parent / "ontology-cache" / "afo-terms.json"
 CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
-ASM_CLASS_REFERENCE = RESOURCES / "_official_lc_schema_reference.json"
 
 
 def _normalise_label(label: str) -> str:
@@ -52,13 +52,19 @@ def _asm_label_key(label: str) -> str:
     )
 
 
-def property_class_ids(reference_path: Path = ASM_CLASS_REFERENCE) -> dict[str, set[str]]:
+def property_class_ids(reference_path: Path | None = None) -> dict[str, set[str]]:
     """Collect ASM property-class IRIs indexed by official and safe alias names.
 
-    The repository's official LC reference is a useful local source for current
-    HPLC/GC fields. Exact names are preferred. Connective-word-normalized aliases
-    are included only when every official occurrence resolves to the same IRI.
+    The official LC schema is read from the complete local ASM checkout, never
+    copied into this repository. Exact names are preferred. Connective-word-
+    normalized aliases are included only when every official occurrence resolves
+    to the same IRI.
     """
+    if reference_path is None:
+        reference_path = latest_lc_schema()
+        if reference_path is None:
+            return {}
+
     if not reference_path.is_file():
         return {}
 

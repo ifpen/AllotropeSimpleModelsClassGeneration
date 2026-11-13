@@ -89,6 +89,42 @@ def test_official_reference_resolves_safe_peak_label_aliases(tmp_path: Path) -> 
     ) == {"urn:plates-tangent"}
 
 
+def test_default_reference_is_read_from_the_local_asm_checkout(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Use the official LC schema in the separate ASM clone by default."""
+    from allotrope_gen import ontology
+
+    repository = tmp_path / "asm"
+    schema_path = (
+        repository
+        / "json-schemas/adm/liquid-chromatography/REC/2027/03/"
+        / "liquid-chromatography.tabular.embed.schema.json"
+    )
+    schema_path.parent.mkdir(parents=True)
+    schema_path.write_text(
+        json.dumps(
+            {
+                "$defs": {
+                    "measurement": {
+                        "properties": {
+                            "peak width at 4.4 % of height": {
+                                "$asm.property-class": "urn:peak-width"
+                            }
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(ontology, "latest_lc_schema", lambda: schema_path)
+
+    assert ontology.property_class_ids() == {
+        "peak width at 4.4 % of height": {"urn:peak-width"}
+    }
+
+
 def test_normalized_alias_with_multiple_property_classes_is_rejected(
     tmp_path: Path,
 ) -> None:

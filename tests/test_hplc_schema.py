@@ -7,13 +7,23 @@ from pathlib import Path
 
 import pytest
 
+from allotrope_gen.asm import latest_lc_schema, require_asm_repository
 from allotrope_gen.config import SPECS
 from allotrope_gen.schema import load_yaml
 
 
 RESOURCES = SPECS["hplc"].parent
-OFFICIAL_SCHEMA = RESOURCES / "_official_lc_schema_reference.json"
-SAMPLE_PATH = Path.home() / "AppData" / "Local" / "Temp" / "liquid-chromatography.sample.json"
+
+
+def _load_official_lc_schema() -> tuple[dict, Path, Path]:
+    """Load the authoritative LC schema from a local full ASM checkout."""
+    repository = require_asm_repository()
+    schema_path = latest_lc_schema(repository)
+    if schema_path is None:
+        raise FileNotFoundError(
+            f"No released LC embedded schema found in ASM checkout {repository}"
+        )
+    return json.loads(schema_path.read_text(encoding="utf-8")), repository, schema_path
 
 
 def _schema_paths(
@@ -169,20 +179,28 @@ def _small_full_lc_document() -> dict:
     }
 
 
-def test_official_reference_is_pinned_and_full_sample_is_valid():
-    """Keep a local canonical schema copy so LC fixtures stay reproducible."""
-    assert OFFICIAL_SCHEMA.is_file()
-    official = json.loads(OFFICIAL_SCHEMA.read_text(encoding="utf-8"))
+def test_official_schema_and_full_sample_from_asm_checkout_are_valid():
+    """Validate upstream LC example data against the authoritative schema."""
+    official, repository, schema_path = _load_official_lc_schema()
     assert official["$id"].endswith("/liquid-chromatography.tabular.embed.schema")
-    assert "/REC/2026/09/" in official["$id"]
-
-    if SAMPLE_PATH.is_file():
-        sample = json.loads(SAMPLE_PATH.read_text(encoding="utf-8"))
-        _validate_official(sample, official)
+    schema_release = schema_path.parent.relative_to(
+        repository / "json-schemas/adm/liquid-chromatography"
+    )
+    assert schema_release.parts[0] == "REC"
+    assert f"/{schema_release.as_posix()}/" in official["$id"]
+    sample_path = (
+        repository
+        / "test/adm/liquid-chromatography"
+        / schema_release
+        / "liquid-chromatography.json"
+    )
+    assert sample_path.is_file(), f"Expected ASM example at {sample_path}"
+    sample = json.loads(sample_path.read_text(encoding="utf-8"))
+    _validate_official(sample, official)
 
 
 def test_full_root_hierarchy_document_validates_against_official_schema():
-    official = json.loads(OFFICIAL_SCHEMA.read_text(encoding="utf-8"))
+    official, _, _ = _load_official_lc_schema()
     _validate_official(_small_full_lc_document(), official)
 
 
@@ -325,7 +343,7 @@ def test_hplc_deprecations_are_scoped_to_officially_deprecated_properties():
 
 
 def test_hplc_projection_includes_official_lc_root_property_paths():
-    official = json.loads(OFFICIAL_SCHEMA.read_text(encoding="utf-8"))
+    official, _, _ = _load_official_lc_schema()
     spec = load_yaml(SPECS["hplc"])
     schemas = spec["components"]["schemas"]
 
