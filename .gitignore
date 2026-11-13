@@ -44,3 +44,4 @@ build/
 maven.zip
 build.log
 .opencode/**
+allotrope_gen.egg-info/**
