@@ -198,6 +198,32 @@ class TestMergedCommonsYaml:
         names = schema_names(doc)
         assert {"Foo", "Bar", "Cube"}.issubset(names)
 
+    def test_rewrites_cross_file_refs_to_merged_components(self, tmp_path: Path):
+        """Merged commons refs resolve inside the merged document."""
+        common = tmp_path / "common.yaml"
+        common.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n"
+            "  Quantity: {type: object}\n"
+            "  QuantityAlias:\n    $ref: './common.yaml#/components/schemas/Quantity'\n",
+            encoding="utf-8",
+        )
+        core = tmp_path / "core.yaml"
+        core.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n"
+            "  Sequence:\n    properties:\n"
+            "      start:\n        $ref: './common.yaml#/components/schemas/QuantityAlias'\n",
+            encoding="utf-8",
+        )
+
+        merged = load_yaml(merged_commons_yaml(tmp_path, [common, core]))
+        schemas = merged["components"]["schemas"]
+
+        assert schemas["QuantityAlias"]["$ref"] == "#/components/schemas/Quantity"
+        assert (
+            schemas["Sequence"]["properties"]["start"]["$ref"]
+            == "#/components/schemas/QuantityAlias"
+        )
+
     def test_merges_core_file(self, tmp_path: Path):
         core = tmp_path / "core.yaml"
         core.write_text(

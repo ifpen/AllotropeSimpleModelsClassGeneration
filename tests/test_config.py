@@ -322,5 +322,8 @@ class TestSpecs:
 
 def test_npm_peer_dependency_range_is_strict_semver():
     """npm rejects zero-padded versions such as ``2026.09.0`` as a range."""
-    from allotrope_gen.config import npm_semver
+    import re
+    from allotrope_gen.config import LANGUAGES, npm_semver
     assert npm_semver("2026.09.0") == "2026.9.0"
+    version = LANGUAGES["typescript-angular"].commons_version
+    assert re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version)

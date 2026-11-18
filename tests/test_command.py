@@ -231,16 +231,52 @@ class TestBuildCommonsCmd:
 
 
 # ---------------------------------------------------------------------------
-# Module names and versions
+# Commons mappings and module placeholders
 # ---------------------------------------------------------------------------
+
+
+class TestCommonsMappings:
+    def test_module_placeholder(self):
+        from allotrope_gen.command import interpolate
+        assert interpolate("allotrope-models-{module}", "gc") == "allotrope-models-gc"
+        assert interpolate("allotrope-models-{module}", "") == "allotrope-models-commons"
+
+    def test_package_placeholder_in_config(self, tmp_path: Path):
+        import json as _json
+        from allotrope_gen.command import write_config
+        from allotrope_gen.config import LANGUAGES
+        cfg = LANGUAGES["java"]
+        config = _json.loads(write_config(cfg.extra_props, "gc", cfg, tmp_path).read_text(encoding="utf-8"))
+        assert config["invokerPackage"] == "fr.ifpen.allotropeconverters.allotrope_models.gc.client"
+        assert config["artifactId"] == "allotrope-models-gc"
+        commons = _json.loads(write_config(cfg.extra_props, "", cfg, tmp_path).read_text(encoding="utf-8"))
+        assert commons["artifactId"] == "allotrope-models-commons"
+        # Spec invoker classes never land in the commons model package.
+        assert commons["invokerPackage"] != config["invokerPackage"]
+
+    def test_schema_mappings_default_to_import_pattern(self):
+        from allotrope_gen.command import build_import_mappings, build_schema_mappings
+        from allotrope_gen.config import LANGUAGES
+        for lang in ("java", "csharp", "typescript-angular", "python"):
+            cfg = LANGUAGES[lang]
+            assert build_schema_mappings({"B", "A"}, cfg) == build_import_mappings({"A", "B"}, cfg)
+
+    def test_python_maps_to_bare_class_names(self):
+        from allotrope_gen.command import build_schema_mappings
+        from allotrope_gen.config import LANGUAGES
+        assert build_schema_mappings({"Foo"}, LANGUAGES["python"]) == "Foo=Foo"
+
+    def test_build_cmd_passes_schema_mappings(self, tmp_path: Path):
+        from allotrope_gen.command import build_cmd
+        from allotrope_gen.config import LANGUAGES
+        cmd = build_cmd("gc", tmp_path / "gc.yaml", LANGUAGES["java"], {"Foo"}, tmp_path)
+        mapping = "Foo=fr.ifpen.allotropeconverters.allotrope_models.Foo"
+        assert cmd[cmd.index("--schema-mappings") + 1] == mapping
+        assert cmd[cmd.index("--import-mappings") + 1] == mapping
 
 
 class TestModuleVersions:
     """Every language publishes a module at its OpenAPI ``info.version``."""
-
-    def test_module_placeholder(self):
-        assert interpolate("allotrope-models-{module}", "gc") == "allotrope-models-gc"
-        assert interpolate("allotrope-models-{module}", "") == "allotrope-models-commons"
 
     @pytest.mark.parametrize("lang, key, expected", [
         ("java", "artifactVersion", "2026.09.0"),
@@ -256,11 +292,12 @@ class TestModuleVersions:
         config = json.loads(write_config(cfg.extra_props, "gc", cfg, tmp_path).read_text(encoding="utf-8"))
         assert config[key] == expected
 
-    def test_commons_version_and_artifact(self, tmp_path: Path):
+    def test_commons_version(self, tmp_path: Path):
         from allotrope_gen.command import module_version, write_config
-        from allotrope_gen.config import COMMONS_VERSION, LANGUAGES
+        from allotrope_gen.config import COMMONS_VERSION, LANGUAGES, npm_semver
         assert module_version("") == COMMONS_VERSION
-        cfg = LANGUAGES["java"]
-        config = json.loads(write_config(cfg.extra_props, "", cfg, tmp_path).read_text(encoding="utf-8"))
-        assert config["artifactId"] == "allotrope-models-commons"
-        assert config["artifactVersion"] == COMMONS_VERSION
+        for cfg in LANGUAGES.values():
+            config = json.loads(write_config(cfg.extra_props, "", cfg, tmp_path).read_text(encoding="utf-8"))
+            published = config.get("artifactVersion") or config.get("npmVersion") or config.get("packageVersion")
+            # Spec packages depend on exactly the version commons is published at.
+            assert npm_semver(published) == npm_semver(cfg.commons_version)

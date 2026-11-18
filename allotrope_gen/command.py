@@ -172,6 +172,28 @@ def build_import_mappings(common_schemas: set[str], cfg: LanguageConfig) -> str:
     )
 
 
+def build_schema_mappings(common_schemas: set[str], cfg: LanguageConfig) -> str:
+    """Build the comma-separated ``--schema-mappings`` value.
+
+    Import mappings only change how a commons type is referenced; schema
+    mappings additionally stop the generator from emitting a model for it.
+    Both are needed so instrument packages use (rather than duplicate) the
+    published commons classes.
+
+    Args:
+        common_schemas: Commons schema names reachable from the spec.
+        cfg:            Language configuration.
+
+    Returns:
+        A comma-separated ``Schema=Type`` list, or ``""`` when empty.
+    """
+    pattern = cfg.schema_pattern or cfg.import_pattern
+    return ",".join(
+        pattern.format(class_name=name, commons_package=cfg.commons_package)
+        for name in sorted(common_schemas)
+    )
+
+
 def build_cmd(
     spec: str,
     spec_path: Path,
@@ -185,8 +207,8 @@ def build_cmd(
         spec:           Spec identifier (e.g. ``"gc"``).
         spec_path:      Path to the instrument YAML file.
         cfg:            Language configuration.
-        common_schemas: Commons schemas referenced by this spec; used to build
-                        ``--import-mappings``.
+        common_schemas: Commons schemas reachable from this spec; used to build
+                        ``--import-mappings`` and ``--schema-mappings``.
         output_dir:     Where the generator should write its output.
 
     Returns:
@@ -203,7 +225,10 @@ def build_cmd(
         "--config",         str(config_path),
     ]
     if import_mappings:
-        cmd += ["--import-mappings", import_mappings]
+        cmd += [
+            "--import-mappings", import_mappings,
+            "--schema-mappings", build_schema_mappings(common_schemas, cfg),
+        ]
     cmd += cfg.extra_opts
     return cmd
 

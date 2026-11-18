@@ -9,22 +9,30 @@ Responsible for:
   (so ``--import-mappings`` stays minimal).
 * Merging the commons YAML files into a single temporary document that the
   generator can consume as a single ``--input-spec``.
+* Bundling an instrument spec with the commons schemas it reaches, so the
+  generator keeps commons schema names and honours schema mappings.
 """
 
 from __future__ import annotations
 
+import copy
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 import yaml
 
-from .config import COMMON_YAML_FILES
+from .config import COMMON_YAML_FILES, COMMONS_VERSION
 
 # Pre-compiled pattern for parsed $ref values that point to commons files.
 _COMMONS_REF_RE = re.compile(
     r"^\./[\w-]+\.yaml#/components/schemas/(\w+)$"
 )
+_MERGED_SCHEMA_REF_RE = re.compile(
+    r"^\./[\w-]+\.yaml#/components/schemas/([\w-]+)$"
+)
+_LOCAL_SCHEMA_PREFIX = "#/components/schemas/"
 
 
 def load_yaml(path: Path) -> dict:
@@ -102,36 +110,63 @@ def schemas_referenced_from_commons(
     return common & referenced
 
 
-def merged_commons_yaml(
-    output_dir: Path,
-    common_files: list[Path] | None = None,
-) -> Path:
-    """Merge all commons YAML files into a single document in *output_dir*.
+def _rewrite_commons_refs(node: object, names: set[str]) -> set[str]:
+    """Rewrite commons ``$ref``s in *node* to local component references.
 
-    The merged file (``commons-merged.yaml``) is passed as ``--input-spec``
-    when generating the commons library.  Schema definitions that appear
-    identically in multiple source files are silently deduplicated; conflicting
-    definitions for the same schema name are a hard error.
+    Both relative cross-file references (``./core.yaml#/components/schemas/X``)
+    and local references (``#/components/schemas/X``) whose target is in
+    *names* are normalised to ``#/components/schemas/X``.  The tree is
+    modified in place.
 
     Args:
-        output_dir:   Directory where ``commons-merged.yaml`` will be written.
+        node:  Parsed YAML node (dict, list or scalar).
+        names: Schema names available in the shared component namespace.
+
+    Returns:
+        The set of names in *names* referenced anywhere below *node*.
+    """
+    referenced: set[str] = set()
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            decoded = unquote(ref)
+            match = _MERGED_SCHEMA_REF_RE.fullmatch(decoded)
+            name = match.group(1) if match else None
+            if name is None and decoded.startswith(_LOCAL_SCHEMA_PREFIX):
+                name = decoded[len(_LOCAL_SCHEMA_PREFIX):]
+            if name in names:
+                node["$ref"] = f"{_LOCAL_SCHEMA_PREFIX}{name}"
+                referenced.add(name)
+        for value in node.values():
+            referenced |= _rewrite_commons_refs(value, names)
+    elif isinstance(node, list):
+        for value in node:
+            referenced |= _rewrite_commons_refs(value, names)
+    return referenced
+
+
+def merged_commons_schemas(
+    common_files: list[Path] | None = None,
+) -> dict[str, dict]:
+    """Return every commons schema in one namespace with local ``$ref``s.
+
+    Schema definitions that appear identically in multiple source files are
+    silently deduplicated; conflicting definitions for the same schema name
+    are a hard error.  Cross-file references between commons files are
+    rewritten to ``#/components/schemas/<name>``.
+
+    Args:
         common_files: Override for the commons file list (test helper).
 
     Returns:
-        Path to the written ``commons-merged.yaml`` file.
+        Mapping of schema name to (rewritten) schema definition.
 
     Raises:
         SystemExit: If two source files define the same schema name with
             different content.  The collision must be resolved manually.
     """
     files = COMMON_YAML_FILES if common_files is None else common_files
-    merged: dict = {
-        "openapi": "3.1.0",
-        "info": {"title": "ASM Commons", "version": "2025-03"},
-        "components": {"schemas": {}},
-    }
-    schemas = merged["components"]["schemas"]
-
+    schemas: dict[str, dict] = {}
     for path in files:
         if not path.exists():
             print(f"[WARN] Common file not found, skipping: {path}", file=sys.stderr)
@@ -150,9 +185,150 @@ def merged_commons_yaml(
             else:
                 schemas[name] = definition
 
+    _rewrite_commons_refs(schemas, set(schemas))
+    return schemas
+
+
+def merged_commons_yaml(
+    output_dir: Path,
+    common_files: list[Path] | None = None,
+) -> Path:
+    """Merge all commons YAML files into a single document in *output_dir*.
+
+    The merged file (``commons-merged.yaml``) is passed as ``--input-spec``
+    when generating the commons library.  See :func:`merged_commons_schemas`
+    for the merge and collision rules.
+
+    Args:
+        output_dir:   Directory where ``commons-merged.yaml`` will be written.
+        common_files: Override for the commons file list (test helper).
+
+    Returns:
+        Path to the written ``commons-merged.yaml`` file.
+    """
+    merged: dict = {
+        "openapi": "3.1.0",
+        "info": {"title": "ASM Commons", "version": COMMONS_VERSION},
+        "components": {"schemas": merged_commons_schemas(common_files)},
+    }
     merged_path = output_dir / "commons-merged.yaml"
     merged_path.write_text(
         yaml.dump(merged, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
     return merged_path
+
+
+def bundle_spec(
+    spec_path: Path,
+    output_dir: Path,
+    common_files: list[Path] | None = None,
+) -> tuple[Path, set[str]]:
+    """Write a self-contained copy of an instrument spec for the generator.
+
+    openapi-generator's OpenAPI 3.1 parser dereferences external
+    ``./core.yaml#/...`` references *inline*.  The referenced commons schemas
+    then lose their names, ``--import-mappings`` never match, and every spec
+    package re-emits its own copies of the commons classes under long
+    path-derived names.  Bundling avoids that: every commons schema reachable
+    from the spec is copied under its own name into the spec's
+    ``components/schemas`` and all references become local.  The returned name
+    set is then passed as both import and schema mappings, so the generator
+    references the commons package classes instead of emitting copies.
+
+    Args:
+        spec_path:    Instrument spec YAML file.
+        output_dir:   Directory for the bundled ``<spec>.bundled.yaml``.
+        common_files: Override for the commons file list (test helper).
+
+    Primitive aliases (e.g. ``CoreTNamed: {type: string}``) produce no class
+    in the commons package; they are copied verbatim and left unmapped so the
+    generator inlines the primitive type, exactly as it does for commons.
+    Inside every *mapped* schema, nested inline object schemas are replaced by
+    an empty ``{type: object}``: the generator never emits the mapped schema,
+    but it would otherwise still emit helper classes for those nested inline
+    objects (``DoubleValueOneOf`` …) into the instrument package.
+
+    Returns:
+        ``(bundled_path, commons_names)`` where *commons_names* is the
+        transitive closure of class-producing commons schemas reachable from
+        the spec, i.e. the names to map onto the commons package.
+
+    Raises:
+        SystemExit: If the spec defines a schema whose name is also a commons
+            schema name (the two would be indistinguishable after bundling).
+    """
+    commons = merged_commons_schemas(common_files)
+    doc = load_yaml(spec_path)
+    schemas = doc.setdefault("components", {}).setdefault("schemas", {})
+    clashes = sorted(set(schemas) & set(commons))
+    if clashes:
+        print(
+            f"[ERROR] {spec_path.name} redefines commons schema(s) {clashes};"
+            " reference the commons definition instead.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    pending = _rewrite_commons_refs(doc, set(commons))
+    included: set[str] = set()
+    while pending:
+        name = pending.pop()
+        if name in included:
+            continue
+        included.add(name)
+        definition = copy.deepcopy(commons[name])
+        pending |= _rewrite_commons_refs(definition, set(commons)) - included
+        if generates_model(definition):
+            _hollow_nested_inline_objects(definition)
+        schemas[name] = definition
+    mapped = {name for name in included if generates_model(schemas[name])}
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    bundled_path = output_dir / f"{spec_path.stem}.bundled.yaml"
+    bundled_path.write_text(
+        yaml.dump(doc, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    return bundled_path, mapped
+
+
+_PRIMITIVE_TYPES = {"string", "number", "integer", "boolean"}
+
+
+def generates_model(schema: dict) -> bool:
+    """Return whether the generator emits a model class for *schema*.
+
+    Primitive aliases without an ``enum`` (and array aliases) are unaliased
+    to the underlying type by openapi-generator, so no class exists for them.
+    Objects, compositions (``oneOf``/``anyOf``/``allOf``) and enums produce
+    models.
+    """
+    if any(key in schema for key in ("properties", "oneOf", "anyOf", "allOf", "enum")):
+        return True
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        schema_type = next((t for t in schema_type if t != "null"), None)
+    return schema_type not in _PRIMITIVE_TYPES and schema_type != "array"
+
+
+def _hollow_nested_inline_objects(schema: dict) -> None:
+    """Replace inline object schemas *below* the top level with ``{type: object}``.
+
+    ``$ref`` nodes, primitive leaves and the top-level node are untouched, so
+    the schema keeps its shape (object, composition, enum) for the generator.
+    """
+    def visit(node: object, top: bool) -> object:
+        if isinstance(node, dict):
+            if not top and "$ref" not in node and (
+                "properties" in node or "additionalProperties" in node
+            ):
+                return {"type": "object"}
+            return {key: visit(value, False) for key, value in node.items()}
+        if isinstance(node, list):
+            return [visit(value, False) for value in node]
+        return node
+
+    hollowed = visit(schema, True)
+    schema.clear()
+    schema.update(hollowed)

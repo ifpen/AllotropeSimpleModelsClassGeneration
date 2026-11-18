@@ -187,6 +187,14 @@ class LanguageConfig:
         import_pattern:   ``str.format``-style template for a single
                           ``--import-mappings`` entry.  Receives
                           ``{class_name}`` and ``{commons_package}``.
+        commons_version:  Version the generated commons package receives in
+                          this language (``{version}``/``{semver}`` of the
+                          commons module); instrument packages declare a
+                          dependency on exactly this version.
+        schema_pattern:   Template for a single ``--schema-mappings`` entry.
+                          Schema mappings stop the generator from emitting
+                          the commons classes again.  ``None`` reuses
+                          *import_pattern*.
         extra_props:      Key/value pairs written verbatim to the generator
                           config JSON (``--config``).  Values may contain
                           ``{spec}``, ``{spec_pascal}``, or ``{spec_upper}``
@@ -205,7 +213,9 @@ class LanguageConfig:
     package_fn: Callable[[str], str]
     commons_package: str
     import_pattern: str
+    commons_version: str
     extra_props: dict[str, str]
+    schema_pattern: str | None = None
     extra_opts: list[str] = field(default_factory=list)
     publish_cmd: str | None = None
 
@@ -222,6 +232,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         package_fn=java_package,
         commons_package=java_package(""),
         import_pattern="{class_name}={commons_package}.{class_name}",
+        commons_version=COMMONS_VERSION,
         extra_props={
             "artifactVersion":          "{version}",
             "groupId":                  "fr.ifpen.allotropeconverters",
@@ -238,6 +249,10 @@ LANGUAGES: dict[str, LanguageConfig] = {
             "scmDeveloperConnection":   "scm:git:ssh://github.com/ifpen/AllotropeSimpleModelsClassGeneration.git",
             "scmUrl":                   "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
             "serializationLibrary":     "jackson",
+            # By default the invoker package is the parent of modelPackage,
+            # which for instrument specs is the commons model package: both
+            # jars would then ship the same ApiClient/JSON classes.
+            "invokerPackage":           "{package}.client",
             "library":                  "native",
         },
         extra_opts=["--skip-validate-spec"],
@@ -252,6 +267,8 @@ LANGUAGES: dict[str, LanguageConfig] = {
         package_fn=npm_package,
         commons_package=npm_package(""),   # @ifpen/allotrope-models-commons
         import_pattern="{class_name}={commons_package}",
+        # npm rejects zero-padded versions in ranges: use the strict form.
+        commons_version=npm_semver(COMMONS_VERSION),
         extra_props={
             "npmVersion":  "{semver}",
             "ngVersion":   "19.0.0",
@@ -268,6 +285,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         package_fn=csharp_namespace,
         commons_package=csharp_namespace(""),
         import_pattern="{class_name}={commons_package}.Model.{class_name}",
+        commons_version=npm_semver(COMMONS_VERSION),
         extra_props={
             "packageVersion":     "{semver}",
             "netCoreProjectFile": "true",
@@ -290,11 +308,13 @@ LANGUAGES: dict[str, LanguageConfig] = {
         output_subdir="python",
         package_key="packageName",
         package_fn=python_package,
-        # Python Commons imports are still not handled reliably by the
-        # OpenAPI Generator's import-mapping support; keep its legacy mapping
-        # shape until that generator limitation is addressed.
+        # The Python generator never emits ``import`` statements for mapped
+        # schemas.  Map commons schemas to their bare class names;
+        # :func:`~allotrope_gen.patch.patch_python_package` then adds
+        # ``from ifpen.allotrope_models import <Class>`` where they are used.
         commons_package=python_package(""),
-        import_pattern="{class_name}={commons_package}.{class_name}",
+        import_pattern="{class_name}={class_name}",
+        commons_version=npm_semver(COMMONS_VERSION),
         extra_props={
             "packageVersion": "{semver}",
             "packageUrl":     "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",

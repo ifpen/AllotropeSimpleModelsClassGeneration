@@ -8,8 +8,9 @@ invokes:
 
 * :func:`generate_commons` — merge commons YAML files and run the generator
   for each requested language.
-* :func:`generate_specs` — for each (spec, language) pair, compute
-  ``--import-mappings`` and run the generator.
+* :func:`generate_specs` — bundle each spec with the commons schemas it
+  reaches, run the generator for each language with import/schema mappings
+  to the commons package, and declare the commons dependency.
 """
 
 from __future__ import annotations
@@ -19,11 +20,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .command import build_cmd, build_commons_cmd
+from .command import build_cmd, build_commons_cmd, interpolate
 from .config import COMMON_YAML_FILES, LANGUAGES, OUTPUT, SPECS, LanguageConfig
 from .ontology import enrich_spec_descriptions
-from .patch import patch_java_pom
-from .schema import merged_commons_yaml, schemas_referenced_from_commons
+from .patch import (
+    add_csharp_package_reference,
+    add_java_dependency,
+    add_npm_peer_dependency,
+    patch_java_pom,
+    patch_python_package,
+)
+from .schema import (
+    bundle_spec,
+    merged_commons_yaml,
+)
+
+#: Directory for self-contained instrument specs handed to the generator.
+BUNDLED: Path = OUTPUT.parent / "bundled-specs"
 
 
 # ---------------------------------------------------------------------------
@@ -140,9 +153,11 @@ def generate_specs(
 ) -> bool:
     """Generate instrument-spec libraries for every requested (spec, language) pair.
 
-    For each spec the function first resolves which commons schemas are
-    referenced (to build ``--import-mappings``), then calls
-    ``openapi-generator-cli`` for each language.
+    For each spec the function bundles the commons schemas it reaches into a
+    self-contained copy (see :func:`~allotrope_gen.schema.bundle_spec`), calls
+    ``openapi-generator-cli`` for each language with import and schema
+    mappings to the commons package, and then declares the commons package as
+    a dependency of the generated package (see :func:`declare_commons_dependency`).
 
     Args:
         specs:    Spec keys from :data:`~allotrope_gen.config.SPECS`.
@@ -164,8 +179,8 @@ def generate_specs(
         if not dry_run:
             enrich_spec_descriptions(spec_path)
 
-        common_schemas = schemas_referenced_from_commons(spec_path)
-        print(f"\n[{spec}] common schemas referenced: {sorted(common_schemas)}")
+        bundled_path, common_schemas = bundle_spec(spec_path, BUNDLED)
+        print(f"\n[{spec}] common schemas reachable: {sorted(common_schemas)}")
 
         for lang in langs:
             cfg = LANGUAGES[lang]
@@ -174,11 +189,54 @@ def generate_specs(
             out.mkdir(parents=True, exist_ok=True)
             print(f"\n[{spec}] -> {lang}")
 
-            cmd = build_cmd(spec, spec_path, cfg, common_schemas, out)
+            cmd = build_cmd(spec, bundled_path, cfg, common_schemas, out)
             if run(cmd, dry_run):
                 if lang == "java":
                     patch_java_pom(out / "pom.xml", dry_run)
+                if common_schemas:
+                    declare_commons_dependency(spec, lang, out, common_schemas, dry_run)
             else:
                 all_ok = False
 
     return all_ok
+
+
+def declare_commons_dependency(
+    spec: str,
+    lang: str,
+    output_dir: Path,
+    common_schemas: set[str],
+    dry_run: bool,
+) -> None:
+    """Declare the commons package as a dependency of a generated spec package.
+
+    Args:
+        spec:           Spec identifier (e.g. ``"gc"``).
+        lang:           Language key from :data:`~allotrope_gen.config.LANGUAGES`.
+        output_dir:     Generated output directory for the pair.
+        common_schemas: Commons schemas the spec package references.
+        dry_run:        When ``True``, report but do not modify any file.
+    """
+    cfg = LANGUAGES[lang]
+    commons_name = cfg.package_fn("")
+    if cfg.generator == "java":
+        add_java_dependency(
+            output_dir / "pom.xml",
+            cfg.extra_props["groupId"],
+            interpolate(cfg.extra_props["artifactId"], ""),
+            cfg.commons_version,
+            dry_run,
+        )
+    elif cfg.generator == "csharp":
+        add_csharp_package_reference(output_dir, commons_name, cfg.commons_version, dry_run)
+    elif cfg.generator == "typescript-angular":
+        add_npm_peer_dependency(output_dir / "package.json", commons_name, cfg.commons_version, dry_run)
+    elif cfg.generator == "python":
+        patch_python_package(
+            output_dir,
+            cfg.package_fn(spec),
+            commons_name,
+            cfg.commons_version,
+            common_schemas,
+            dry_run,
+        )
