@@ -1,20 +1,44 @@
 #!/usr/bin/env python3
-"""Deserialize upstream ASM examples into generated clients.
+"""Deserialize upstream ASM examples into the generated clients.
 
-The verifier compiles each requested spec/language client and runs a small,
-language-native deserialization probe against the latest examples in the full
-ASM checkout.  Every missing example, generated module, compiler, or test
-failure is reported as a failed spec/language pair.
+For every requested spec/language pair the verifier:
+
+1. builds the generated *commons* package for the language once and makes it
+   resolvable (local Maven repository, local NuGet feed, npm tarball, Python
+   target directory), exactly as a consumer would install it;
+2. selects every example of the newest ``REC/YYYY/MM`` release in the full ASM
+   checkout whose ``$asm.manifest`` is one the spec accepts;
+3. removes the few documented members of the official examples that the
+   official schema does not declare (:data:`KNOWN_EXAMPLE_DEVIATIONS`);
+4. runs a language-native probe:
+
+   * **Java, C#, Python** deserialize each example into the generated root
+     model, serialize it back to JSON, and the round-tripped document is
+     compared with the original.  Any field that is dropped, altered or added
+     is reported, so a model that silently ignores part of an example fails.
+   * **TypeScript (Angular)** models are interfaces without a runtime
+     deserializer, so each example is type-checked as an object literal with
+     ``satisfies <RootModel>`` under ``tsc --strict``.  Excess-property checks
+     report unknown fields, and wrong types or enum values fail compilation.
+
+Every missing example, generated module, toolchain or comparison failure is
+reported as a failed pair; nothing is skipped silently.
 """
 
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
+import math
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
@@ -22,107 +46,362 @@ sys.path.insert(0, str(ROOT))
 
 from allotrope_gen.asm import find_asm_repository
 from allotrope_gen.config import LANGUAGES, OUTPUT, SPECS
+from allotrope_gen.schema import load_yaml
 
 
-EXAMPLE_PATHS: dict[str, tuple[str, ...]] = {
-    "gc": ("test/adm/gas-chromatography", "gas-chromatography.tabular.json"),
-    "dsc": ("test/adm/dsc", "differential-scanning-calorimetry.json"),
-    "hplc": ("test/adm/liquid-chromatography", "liquid-chromatography.json"),
+#: Example directory of each technique in the ASM checkout.
+EXAMPLE_DIRS: dict[str, str] = {
+    "gc": "test/adm/gas-chromatography",
+    "dsc": "test/adm/dsc",
+    "hplc": "test/adm/liquid-chromatography",
 }
 
+#: Generated root model class of each spec.
+ROOT_MODELS: dict[str, str] = {
+    "gc": "GasChromatographySimpleModel",
+    "dsc": "DifferentialScanningCalorimetrySimpleModel",
+    "hplc": "LiquidChromatographySimpleModel",
+}
 
-def latest_example(spec: str, repository: Path) -> Path | None:
-    """Return the example from the newest REC release present in the checkout."""
-    example_dir = repository / EXAMPLE_PATHS[spec][0]
-    filename = EXAMPLE_PATHS[spec][1]
-    candidates: list[tuple[tuple[int, int], Path]] = []
+#: Content of the official examples that the official REC/2026/09 JSON
+#: Schema does not declare at that location.  The schemas are open, so the
+#: examples still validate, but the models follow the schema and do not
+#: model these members.  Each entry is ``(parent member, member, reason)``:
+#: *member* is removed from objects that are the value (or an array item) of
+#: *parent member* before probing.  Every removal is printed.
+KNOWN_EXAMPLE_DEVIATIONS: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "gc": (
+        ("processed data aggregate document", "peak list",
+         "the schema declares peak list only under processed data document[]"),
+        ("chromatography column document", "chromatography column film thickness",
+         "not a chromatography column document property in the schema"),
+        ("sample document", "description", "not a sample document property in the schema"),
+        ("match result document", "InChiKey molecular structure",
+         "misspelling of the declared 'InChIKey molecular structure'"),
+        ("match result document", "peak identifier", "not a match result document property"),
+        ("match result document", "database contributor", "not a match result document property"),
+        ("match result document", "retention index", "not a match result document property"),
+    ),
+    "dsc": (
+        ("measurement document", "diagnostic trace aggregate document",
+         "the schema declares it on the measurement aggregate document"),
+    ),
+}
+
+#: Maximum number of differences printed per example.
+MAX_REPORTED_DIFFERENCES = 25
+
+_REC_RE = re.compile(r"^REC$")
+
+
+# ---------------------------------------------------------------------------
+# Example selection
+# ---------------------------------------------------------------------------
+
+
+def spec_manifests(spec: str) -> set[str]:
+    """Return the ``$asm.manifest`` values accepted by the spec's models."""
+    manifests: set[str] = set()
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            manifest = node.get("$asm.manifest")
+            if isinstance(manifest, dict):
+                manifests.update(v for v in manifest.get("enum", []) if isinstance(v, str))
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(load_yaml(SPECS[spec]))
+    return manifests
+
+
+def latest_examples(spec: str, repository: Path) -> list[Path]:
+    """Return the examples of the newest REC release matching the spec manifest.
+
+    Releases are directories ``REC/YYYY/MM`` below the technique's example
+    directory.  Only JSON files whose ``$asm.manifest`` is accepted by the
+    spec are returned, so examples of other model variants are not mixed in.
+    """
+    example_dir = repository / EXAMPLE_DIRS[spec]
     if not example_dir.is_dir():
-        return None
-    for path in example_dir.rglob(filename):
+        return []
+    releases: dict[tuple[int, int], list[Path]] = {}
+    for path in example_dir.rglob("*.json"):
+        parts = path.relative_to(example_dir).parts
+        if len(parts) != 4 or not _REC_RE.match(parts[0]):
+            continue
         try:
-            release = path.relative_to(example_dir).parts[:3]
-            if len(release) != 3 or release[0] != "REC":
-                continue
-            candidates.append(((int(release[1]), int(release[2])), path))
+            release = (int(parts[1]), int(parts[2]))
         except ValueError:
             continue
-    return max(candidates, key=lambda item: item[0])[1] if candidates else None
+        releases.setdefault(release, []).append(path)
+    manifests = spec_manifests(spec)
+    for release in sorted(releases, reverse=True):
+        matching = [
+            path for path in sorted(releases[release])
+            if _manifest_of(path) in manifests
+        ]
+        if matching:
+            return matching
+    return []
 
 
-def _run(command: list[str], cwd: Path) -> bool:
+def _manifest_of(path: Path) -> str | None:
+    """Return the ``$asm.manifest`` of a JSON example (``None`` if unreadable)."""
+    try:
+        with open(path, encoding="utf-8") as stream:
+            document = json.load(stream)
+    except (OSError, ValueError):
+        return None
+    return document.get("$asm.manifest") if isinstance(document, dict) else None
+
+
+def without_known_deviations(spec: str, document: object) -> tuple[object, list[str]]:
+    """Return a copy of *document* without :data:`KNOWN_EXAMPLE_DEVIATIONS`.
+
+    Returns:
+        ``(cleaned document, removed)`` where *removed* lists ``parent.member``
+        for each removed occurrence.
+    """
+    rules = KNOWN_EXAMPLE_DEVIATIONS.get(spec, ())
+    removed: list[str] = []
+
+    def clean(node: object, parent: str | None) -> object:
+        if isinstance(node, list):
+            return [clean(item, parent) for item in node]
+        if not isinstance(node, dict):
+            return node
+        result = {}
+        for key, value in node.items():
+            if any(parent == rule_parent and key == member for rule_parent, member, _ in rules):
+                removed.append(f"{parent}.{key}")
+                continue
+            result[key] = clean(value, key)
+        return result
+
+    return clean(document, None), removed
+
+
+def with_nan_quantity(document: object) -> bool:
+    """Set the first quantity value (``{"value": <number>, "unit": …}``) to ``"NaN"``.
+
+    ASM encodes unavailable quantities as the string ``"NaN"``; the variant
+    built from a real example exercises that path in every language.
+
+    Returns:
+        ``True`` if a quantity value was replaced.
+    """
+    if isinstance(document, dict):
+        value = document.get("value")
+        if "unit" in document and isinstance(value, (int, float)) and not isinstance(value, bool):
+            document["value"] = "NaN"
+            return True
+        return any(with_nan_quantity(child) for child in document.values())
+    if isinstance(document, list):
+        return any(with_nan_quantity(child) for child in document)
+    return False
+
+
+def prepare_examples(spec: str, examples: list[Path], work: Path) -> list[Path]:
+    """Write deviation-free copies of *examples* into *work*.
+
+    Besides one copy per example (same file name), a ``<name>.nan.json``
+    variant of the first example has one quantity value set to ``"NaN"``.
+    """
+    target = work / "examples"
+    target.mkdir()
+    prepared = []
+    for example in examples:
+        with open(example, encoding="utf-8") as stream:
+            cleaned, removed = without_known_deviations(spec, json.load(stream))
+        for member, count in sorted(Counter(removed).items()):
+            reason = next(r for p, m, r in KNOWN_EXAMPLE_DEVIATIONS[spec] if f"{p}.{m}" == member)
+            print(f"[INFO] {example.name}: ignored {count} x {member!r} ({reason})")
+        copy = target / example.name
+        copy.write_text(json.dumps(cleaned, ensure_ascii=False), encoding="utf-8")
+        prepared.append(copy)
+        if example is examples[0] and with_nan_quantity(cleaned):
+            variant = target / f"{example.stem}.nan.json"
+            variant.write_text(json.dumps(cleaned, ensure_ascii=False), encoding="utf-8")
+            prepared.append(variant)
+    return prepared
+
+
+# ---------------------------------------------------------------------------
+# Round-trip comparison
+# ---------------------------------------------------------------------------
+
+
+def _as_datetime(value: str) -> datetime | None:
+    """Parse an ISO-8601 date-time (``Z`` suffix accepted), else ``None``."""
+    if "T" not in value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _is_empty(value: object) -> bool:
+    """Return whether *value* carries no data (null, empty list or object)."""
+    return value is None or value == [] or value == {}
+
+
+def compare_documents(original: object, roundtrip: object, path: str = "$") -> list[str]:
+    """Return human-readable differences between two JSON documents.
+
+    Equivalences that serializers legitimately introduce are accepted:
+    numerically equal numbers (``1`` vs ``1.0``), equal instants written in
+    different ISO-8601 forms, and absent vs ``null``/empty members.
+    """
+    if isinstance(original, dict) and isinstance(roundtrip, dict):
+        differences: list[str] = []
+        for key, value in original.items():
+            child = f"{path}[{json.dumps(key)}]"
+            if key not in roundtrip or (_is_empty(roundtrip[key]) and not _is_empty(value)):
+                differences.append(f"dropped {child}")
+            else:
+                differences += compare_documents(value, roundtrip[key], child)
+        for key, value in roundtrip.items():
+            if key not in original and not _is_empty(value):
+                differences.append(f"added {path}[{json.dumps(key)}] = {json.dumps(value)[:80]}")
+        return differences
+    if isinstance(original, list) and isinstance(roundtrip, list):
+        if len(original) != len(roundtrip):
+            return [f"length of {path}: {len(original)} != {len(roundtrip)}"]
+        differences = []
+        for index, (left, right) in enumerate(zip(original, roundtrip)):
+            differences += compare_documents(left, right, f"{path}[{index}]")
+        return differences
+    if _is_number(original) and _is_number(roundtrip):
+        equal = math.isclose(original, roundtrip, rel_tol=1e-12, abs_tol=0.0)
+    elif isinstance(original, str) and isinstance(roundtrip, str):
+        left, right = _as_datetime(original), _as_datetime(roundtrip)
+        equal = original == roundtrip or (left is not None and left == right)
+    else:
+        equal = type(original) is type(roundtrip) and original == roundtrip
+    if equal:
+        return []
+    return [f"changed {path}: {json.dumps(original)[:80]} -> {json.dumps(roundtrip)[:80]}"]
+
+
+def _is_number(value: object) -> bool:
+    """Return whether *value* is a JSON number (booleans excluded)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def check_roundtrips(examples: list[Path], outputs: Path) -> bool:
+    """Compare every example with its round-tripped serialization."""
+    success = True
+    for example in examples:
+        result = outputs / example.name
+        if not result.exists():
+            print(f"[ERROR] No round-trip output for {example.name}", file=sys.stderr)
+            success = False
+            continue
+        with open(example, encoding="utf-8") as stream:
+            original = json.load(stream)
+        with open(result, encoding="utf-8") as stream:
+            roundtrip = json.load(stream)
+        differences = compare_documents(original, roundtrip)
+        if differences:
+            success = False
+            print(f"[ERROR] {example.name}: {len(differences)} difference(s) after round-trip", file=sys.stderr)
+            for difference in differences[:MAX_REPORTED_DIFFERENCES]:
+                print(f"    {difference}", file=sys.stderr)
+        else:
+            print(f"[OK] {example.name} round-trips without loss")
+    return success
+
+
+# ---------------------------------------------------------------------------
+# Subprocess helpers and commons preparation
+# ---------------------------------------------------------------------------
+
+
+def _run(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> bool:
     """Run a subprocess, translating missing tools into a useful error."""
     print(f"Command: {' '.join(command)}")
     try:
-        return subprocess.run(command, cwd=cwd, check=False).returncode == 0
+        return subprocess.run(command, cwd=cwd, env=env, check=False).returncode == 0
     except OSError as exc:
         print(f"[ERROR] Could not execute {command[0]}: {exc}", file=sys.stderr)
         return False
 
 
-def _probe_source(lang: str, spec: str, example: Path) -> tuple[str, str]:
-    """Build source and command for a per-module JSON deserialization probe."""
-    class_names = {
-        "gc": "GasChromatographySimpleModel",
-        "dsc": "DifferentialScanningCalorimetrySimpleModel",
-        "hplc": "LiquidChromatographySimpleModel",
-    }
-    model = class_names[spec]
-    if lang == "python":
-        package = LANGUAGES[lang].package_fn(spec)
-        source = (
-            "import json, sys\n"
-            f"from {package}.models.{_snake(model)} import {model}\n"
-            "with open(sys.argv[1], encoding='utf-8') as stream:\n"
-            "    payload = json.load(stream)\n"
-            f"instance = {model}.model_validate(payload)\n"
-            "assert instance is not None\n"
-            "print(type(instance).__name__)\n"
-        )
-        return source, "python"
-    if lang == "typescript-angular":
-        source = (
-            "import { readFileSync } from 'node:fs';\n"
-            f"import {{ {model} }} from './model/{_camel(model)}';\n"
-            "const payload: unknown = JSON.parse(readFileSync(process.argv[2], 'utf8'));\n"
-            "if (payload === null || typeof payload !== 'object') throw new Error('not an object');\n"
-            f"const instance = payload as {model};\n"
-            "if (!('$asm.manifest' in instance)) throw new Error('missing ASM manifest');\n"
-            "if (Object.keys(instance).length < 2) throw new Error('missing document aggregate');\n"
-            f"console.log('{model}');\n"
-        )
-        return source, "typescript"
-    if lang == "java":
-        package = LANGUAGES[lang].package_fn(spec)
-        source = (
-            f"package {package};\n"
-            "import com.fasterxml.jackson.databind.ObjectMapper;\n"
-            "import java.nio.file.Files;\n"
-            "import java.nio.file.Path;\n"
-            "public class AsmDeserializeProbe {\n"
-            "  public static void main(String[] args) throws Exception {\n"
-            f"    {model} value = new ObjectMapper().readValue(Files.readString(Path.of(args[0])), {model}.class);\n"
-            "    if (value == null) throw new AssertionError(\"null model\");\n"
-            f"    System.out.println(value.getClass().getSimpleName());\n"
-            "  }\n}\n"
-        )
-        return source, "java"
-    source = (
-        "using System;\n"
-        "using System.IO;\n"
-        "using System.Text.Json;\n"
-        "using Microsoft.Extensions.DependencyInjection;\n"
-        f"using IFPEN.AllotropeConverters.AllotropeModels.{spec.capitalize()}.Model;\n"
-        f"using IFPEN.AllotropeConverters.AllotropeModels.{spec.capitalize()}.Client;\n"
-        "class AsmDeserializeProbe {\n"
-        "  static void Main(string[] args) {\n"
-        "    var services = new ServiceCollection();\n"
-        "    var options = new HostConfiguration(services).JsonSerializerOptions();\n"
-        f"    var value = JsonSerializer.Deserialize<{model}>(File.ReadAllText(args[0]), options);\n"
-        "    if (value == null) throw new InvalidOperationException(\"null model\");\n"
-        f"    Console.WriteLine(nameof({model}));\n"
-        "  }\n}\n"
+_WORKSPACE: Path | None = None
+_COMMONS: dict[str, Path | None] = {}
+
+
+def _workspace() -> Path:
+    """Return the per-process scratch directory (removed at exit)."""
+    global _WORKSPACE
+    if _WORKSPACE is None:
+        _WORKSPACE = Path(tempfile.mkdtemp(prefix="asm-deserialize-"))
+        atexit.register(shutil.rmtree, _WORKSPACE, ignore_errors=True)
+    return _WORKSPACE
+
+
+def _copy_tree(source: Path, target: Path) -> Path:
+    """Copy a generated module without build artefacts."""
+    shutil.copytree(
+        source, target,
+        ignore=shutil.ignore_patterns("node_modules", "dist", "bin", "obj", "target", "*.tgz", "__pycache__"),
     )
-    return source, "csharp"
+    return target
+
+
+def commons_artifact(lang: str) -> Path | None:
+    """Build the generated commons package for *lang* once per process.
+
+    Returns the language-specific artefact location (NuGet feed, npm tarball,
+    Python source copy; the Maven local repository for Java) or ``None`` when
+    the build fails.
+    """
+    if lang in _COMMONS:
+        return _COMMONS[lang]
+    source = OUTPUT / "commons" / LANGUAGES[lang].output_subdir
+    work = _workspace() / f"commons-{lang}"
+    work.mkdir()
+    artifact: Path | None = None
+    print(f"\n--- Building commons ({lang}) ---")
+    if not source.is_dir():
+        print(f"[ERROR] Generated commons output missing: {source}", file=sys.stderr)
+    elif lang == "java":
+        # Installs into the local Maven repository, where spec builds resolve it.
+        if _run(["mvn", "--batch-mode", "-q", "-DskipTests", "install"], _copy_tree(source, work / "src")):
+            artifact = work
+    elif lang == "csharp":
+        project = next((p for p in sorted(source.glob("src/*/*.csproj")) if not p.stem.endswith(".Test")), None)
+        feed = work / "feed"
+        if project and _run(
+            ["dotnet", "pack", str(_copy_tree(project.parent, work / "src") / project.name),
+             "--configuration", "Release", "--output", str(feed)],
+            work,
+        ):
+            artifact = feed
+    elif lang == "python":
+        artifact = _copy_tree(source, work / "src")
+    elif lang == "typescript-angular":
+        build = _copy_tree(source, work / "src")
+        if (
+            _run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"], build)
+            and _run(["npm", "run", "build"], build)
+            and _run(["npm", "pack", "--pack-destination", str(work), "./dist"], build)
+        ):
+            artifact = next(work.glob("*.tgz"), None)
+    _COMMONS[lang] = artifact
+    if artifact is None:
+        print(f"[ERROR] Commons ({lang}) could not be built", file=sys.stderr)
+    return artifact
+
+
+# ---------------------------------------------------------------------------
+# Language probes
+# ---------------------------------------------------------------------------
 
 
 def _snake(value: str) -> str:
@@ -135,52 +414,90 @@ def _camel(value: str) -> str:
     return value[0].lower() + value[1:]
 
 
-def _verify_python(spec: str, output: Path, example: Path, work: Path) -> bool:
-    """Install generated Python package dependencies, then validate the sample."""
-    dependencies = work / "dependencies"
-    dependencies.mkdir()
+def _io_arguments(examples: list[Path], outputs: Path) -> list[str]:
+    """Return ``input output`` argument pairs for a round-trip probe."""
+    return [arg for example in examples for arg in (str(example), str(outputs / example.name))]
+
+
+def _verify_java(spec: str, output: Path, examples: list[Path], work: Path) -> bool:
+    """Compile the spec module against commons and round-trip with Jackson."""
+    if commons_artifact("java") is None:
+        return False
+    package = LANGUAGES["java"].package_fn(spec)
+    model = ROOT_MODELS[spec]
+    module = _copy_tree(output, work / "module")
+    classpath_file = work / "classpath.txt"
     if not _run(
-        [sys.executable, "-m", "pip", "install", "-q", "--target", str(dependencies), "pydantic>=2.11", "typing-extensions>=4.7"],
-        work,
+        ["mvn", "--batch-mode", "-q", "-DskipTests", "compile", "dependency:build-classpath",
+         f"-Dmdep.outputFile={classpath_file}"],
+        module,
     ):
         return False
-    if not _run([sys.executable, "-m", "compileall", "-q", str(output / "ifpen")], work):
+    probe = work / "probe" / "AsmRoundTripProbe.java"
+    probe.parent.mkdir()
+    probe.write_text(
+        "import com.fasterxml.jackson.databind.DeserializationFeature;\n"
+        "import com.fasterxml.jackson.databind.ObjectMapper;\n"
+        "import java.io.File;\n"
+        f"import {package}.{model};\n"
+        f"import {package}.client.ApiClient;\n"
+        "public class AsmRoundTripProbe {\n"
+        "  public static void main(String[] args) throws Exception {\n"
+        "    ObjectMapper mapper = ApiClient.createDefaultObjectMapper()\n"
+        "        .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);\n"
+        "    for (int i = 0; i < args.length; i += 2) {\n"
+        f"      {model} value = mapper.readValue(new File(args[i]), {model}.class);\n"
+        "      mapper.writeValue(new File(args[i + 1]), value);\n"
+        f"      System.out.println(\"Deserialized \" + args[i] + \" as {model}\");\n"
+        "    }\n  }\n}\n",
+        encoding="utf-8",
+    )
+    classpath = os.pathsep.join([
+        str(module / "target" / "classes"),
+        classpath_file.read_text(encoding="utf-8").strip(),
+    ])
+    if not _run(["javac", "-cp", classpath, "-d", str(probe.parent), str(probe)], work):
         return False
-    source, _ = _probe_source("python", spec, example)
-    script = work / "probe.py"
-    script.write_text(source, encoding="utf-8")
-    env = os.environ.copy()
-    env["PYTHONPATH"] = os.pathsep.join([str(dependencies), str(output), env.get("PYTHONPATH", "")])
-    return subprocess.run([sys.executable, str(script), str(example)], cwd=work, env=env, check=False).returncode == 0
+    outputs = work / "out"
+    outputs.mkdir()
+    return _run(
+        ["java", "-cp", classpath + os.pathsep + str(probe.parent), "AsmRoundTripProbe",
+         *_io_arguments(examples, outputs)],
+        work,
+    ) and check_roundtrips(examples, outputs)
 
 
-def _verify_java(spec: str, output: Path, example: Path, work: Path) -> bool:
-    """Compile generated Java sources with Maven and run an ObjectMapper probe."""
-    source, _ = _probe_source("java", spec, example)
-    package = LANGUAGES["java"].package_fn(spec).replace(".", "/")
-    probe = work / package / "AsmDeserializeProbe.java"
-    probe.parent.mkdir(parents=True, exist_ok=True)
-    probe.write_text(source, encoding="utf-8")
-    # Compile the entire generated module, export its dependency classpath, and
-    # compile/run a standalone probe against the exact upstream JSON file.
-    if not _run(["mvn", "--batch-mode", "-DskipTests", "compile", "dependency:build-classpath", f"-Dmdep.outputFile={work / 'classpath.txt'}"], output):
+def _verify_csharp(spec: str, output: Path, examples: list[Path], work: Path) -> bool:
+    """Compile the spec project against the commons package and round-trip."""
+    feed = commons_artifact("csharp")
+    if feed is None:
         return False
-    classpath = (output / "target" / "classes").as_posix() + os.pathsep + (work / "classpath.txt").read_text(encoding="utf-8").strip()
-    probe_classpath = classpath + os.pathsep + str(work)
-    if not _run(["javac", "-cp", classpath, "-d", str(work), str(probe)], work):
-        return False
-    return _run(["java", "-cp", probe_classpath, f"{LANGUAGES['java'].package_fn(spec)}.AsmDeserializeProbe", str(example)], work)
-
-
-def _verify_csharp(spec: str, output: Path, example: Path, work: Path) -> bool:
-    """Compile generated C# sources and execute a native JSON probe."""
-    project = next((path for path in output.rglob("*.csproj") if ".Test" not in path.name), None)
+    module = _copy_tree(output, work / "module")
+    project = next((p for p in sorted(module.glob("src/*/*.csproj")) if not p.stem.endswith(".Test")), None)
     if project is None:
         print(f"[ERROR] No generated C# project found in {output}", file=sys.stderr)
         return False
-    probe_dir = work / "csharp-probe"
+    namespace = LANGUAGES["csharp"].package_fn(spec)
+    model = ROOT_MODELS[spec]
+    probe_dir = work / "probe"
     probe_dir.mkdir()
-    (probe_dir / "Program.cs").write_text(_probe_source("csharp", spec, example)[0], encoding="utf-8")
+    (probe_dir / "Program.cs").write_text(
+        "using System;\nusing System.IO;\nusing System.Text.Json;\n"
+        "using Microsoft.Extensions.DependencyInjection;\n"
+        f"using {namespace}.Client;\nusing {namespace}.Model;\n"
+        # Resolve options exactly as a consumer of the generic host would.
+        "var services = new ServiceCollection();\n"
+        "new HostConfiguration(services);\n"
+        "var options = services.BuildServiceProvider()"
+        ".GetRequiredService<JsonSerializerOptionsProvider>().Options;\n"
+        "for (var i = 0; i < args.Length; i += 2)\n{\n"
+        f"    var value = JsonSerializer.Deserialize<{model}>(File.ReadAllText(args[i]), options)\n"
+        "        ?? throw new InvalidOperationException(\"null model\");\n"
+        "    File.WriteAllText(args[i + 1], JsonSerializer.Serialize(value, options));\n"
+        f"    Console.WriteLine($\"Deserialized {{args[i]}} as {model}\");\n"
+        "}\n",
+        encoding="utf-8",
+    )
     (probe_dir / "Probe.csproj").write_text(
         "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType>"
         "<TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings>"
@@ -188,22 +505,94 @@ def _verify_csharp(spec: str, output: Path, example: Path, work: Path) -> bool:
         f"<ProjectReference Include=\"{project}\" /></ItemGroup></Project>",
         encoding="utf-8",
     )
-    return _run(["dotnet", "run", "--project", str(probe_dir / "Probe.csproj"), "--configuration", "Release", "--", str(example)], probe_dir)
+    # A private package cache guarantees the freshly packed commons package is
+    # used rather than a previously cached build with the same version.
+    env = {**os.environ, "NUGET_PACKAGES": str(_workspace() / "nuget-packages")}
+    outputs = work / "out"
+    outputs.mkdir()
+    return _run(
+        ["dotnet", "run", "--project", str(probe_dir / "Probe.csproj"), "--configuration", "Release",
+         f"-p:RestoreAdditionalProjectSources={feed}", "--", *_io_arguments(examples, outputs)],
+        probe_dir,
+        env,
+    ) and check_roundtrips(examples, outputs)
 
 
-def _verify_typescript(spec: str, output: Path, example: Path, work: Path) -> bool:
-    """Compile Angular model declarations and run the JSON.parse typing probe."""
-    source, _ = _probe_source("typescript-angular", spec, example)
-    probe = output / "asm-deserialize-probe.ts"
-    probe.write_text(source, encoding="utf-8")
-    if not (output / "node_modules").is_dir():
-        if not _run(["npm", "install", "--ignore-scripts"], output):
-            return False
-    if not _run(["npm", "run", "build"], output):
+def _verify_python(spec: str, output: Path, examples: list[Path], work: Path) -> bool:
+    """Install commons and spec distributions into a fresh venv and round-trip."""
+    commons = commons_artifact("python")
+    if commons is None:
         return False
-    # Angular models are structural types (not runtime classes); compilation
-    # checks the schema's TypeScript shape and JSON.parse produces the instance.
-    return _run(["npx", "tsc", "--noEmit", "--strict", "--skipLibCheck", "--target", "es2020", "--module", "commonjs", str(probe)], output)
+    venv = work / "venv"
+    python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    # Installing both distributions into one clean environment mirrors a
+    # consumer's setup and checks that the spec package merges into the
+    # commons ``ifpen.allotrope_models`` package without overwriting it.
+    if not (
+        _run([sys.executable, "-m", "venv", str(venv)], work)
+        and _run(
+            [str(python), "-m", "pip", "install", "-q", "--no-compile",
+             str(commons), str(_copy_tree(output, work / "module"))],
+            work,
+        )
+    ):
+        return False
+    package = LANGUAGES["python"].package_fn(spec)
+    model = ROOT_MODELS[spec]
+    probe = work / "probe.py"
+    probe.write_text(
+        "import sys\n"
+        f"from {package}.models.{_snake(model)} import {model}\n"
+        "args = sys.argv[1:]\n"
+        "for source, target in zip(args[::2], args[1::2]):\n"
+        "    with open(source, encoding='utf-8') as stream:\n"
+        f"        value = {model}.from_json(stream.read())\n"
+        "    with open(target, 'w', encoding='utf-8') as stream:\n"
+        "        stream.write(value.to_json())\n"
+        f"    print(f'Deserialized {{source}} as {model}')\n",
+        encoding="utf-8",
+    )
+    outputs = work / "out"
+    outputs.mkdir()
+    return _run(
+        [str(python), str(probe), *_io_arguments(examples, outputs)], work,
+    ) and check_roundtrips(examples, outputs)
+
+
+def _verify_typescript(spec: str, output: Path, examples: list[Path], work: Path) -> bool:
+    """Build the Angular library against commons and type-check each example."""
+    tarball = commons_artifact("typescript-angular")
+    if tarball is None:
+        return False
+    module = _copy_tree(output, work / "module")
+    # Installing the commons tarball together with the declared dependencies
+    # satisfies the ``@ifpen/allotrope-models-commons`` peer dependency.
+    if not (
+        _run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund", "--no-save", str(tarball)], module)
+        and _run(["npm", "run", "build"], module)
+    ):
+        return False
+    model = ROOT_MODELS[spec]
+    probes: list[Path] = []
+    for index, example in enumerate(examples):
+        probe = module / f"asm-example-{index}.ts"
+        payload = example.read_text(encoding="utf-8")
+        probe.write_text(
+            f"import type {{ {model} }} from './model/{_camel(model)}';\n"
+            f"export const example = {payload} satisfies {model};\n",
+            encoding="utf-8",
+        )
+        probes.append(probe)
+    ok = _run(
+        ["npx", "tsc", "--strict", "--noEmit", "--skipLibCheck", "--target", "es2020",
+         "--module", "es2020", "--moduleResolution", "node", *map(str, probes)],
+        module,
+        {**os.environ, "NODE_OPTIONS": "--max-old-space-size=8192"},
+    )
+    if ok:
+        for example in examples:
+            print(f"[OK] {example.name} type-checks as {model}")
+    return ok
 
 
 VERIFY = {
@@ -214,44 +603,54 @@ VERIFY = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Matrix
+# ---------------------------------------------------------------------------
+
+
 def verify_pair(spec: str, lang: str, repository: Path, *, dry_run: bool = False) -> bool:
-    """Verify compilation and real-example deserialization for one pair."""
-    if spec not in SPECS or spec not in EXAMPLE_PATHS:
+    """Verify compilation and lossless example deserialization for one pair."""
+    if spec not in SPECS or spec not in EXAMPLE_DIRS:
         print(f"[ERROR] No ASM example mapping configured for spec {spec!r}", file=sys.stderr)
         return False
-    example = latest_example(spec, repository)
-    if example is None:
-        print(f"[ERROR] No matching REC example found for {spec} under {repository / EXAMPLE_PATHS[spec][0]}", file=sys.stderr)
+    examples = latest_examples(spec, repository)
+    if not examples:
+        print(
+            f"[ERROR] No REC example accepted by {spec} found under {repository / EXAMPLE_DIRS[spec]}",
+            file=sys.stderr,
+        )
         return False
     output = OUTPUT / spec / LANGUAGES[lang].output_subdir
     if not output.is_dir():
         print(f"[ERROR] Generated output missing for {spec} ({lang}): {output}", file=sys.stderr)
         return False
-    print(f"\n--- Deserializing {spec} example with {lang} ---")
-    print(f"Example: {example}")
+    print(f"\n--- Deserializing {spec} examples with {lang} ---")
+    for example in examples:
+        print(f"Example: {example}")
     if dry_run:
         return True
-    with tempfile.TemporaryDirectory(prefix=f"asm-{spec}-{lang}-") as temp_dir:
-        return VERIFY[lang](spec, output, example, Path(temp_dir))
+    work = Path(tempfile.mkdtemp(prefix=f"{spec}-{lang}-", dir=_workspace()))
+    return VERIFY[lang](spec, output, prepare_examples(spec, examples, work), work)
 
 
 def verify_matrix(specs: list[str], langs: list[str], repository: Path, *, dry_run: bool = False) -> bool:
     """Run every spec/language pair; no failed or missing pair is skipped."""
-    success = True
+    results: dict[tuple[str, str], bool] = {}
     for spec in specs:
         for lang in langs:
-            if verify_pair(spec, lang, repository, dry_run=dry_run):
-                print(f"[PASS] {spec} / {lang}")
-            else:
-                print(f"[FAIL] {spec} / {lang}", file=sys.stderr)
-                success = False
-    print(f"\n{'[SUCCESS]' if success else '[FAILURE]'} {len(specs) * len(langs)} deserialization checks")
+            results[spec, lang] = verify_pair(spec, lang, repository, dry_run=dry_run)
+            print(f"[{'PASS' if results[spec, lang] else 'FAIL'}] {spec} / {lang}")
+    print("\nSummary:")
+    for (spec, lang), ok in results.items():
+        print(f"  {'PASS' if ok else 'FAIL'}  {spec:<6} {lang}")
+    success = all(results.values())
+    print(f"\n{'[SUCCESS]' if success else '[FAILURE]'} {len(results)} deserialization checks")
     return success
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run the generated-client deserialization matrix from the command line."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--specs", nargs="+", default=list(SPECS), help="Instrument specs (default: all).")
     parser.add_argument("--langs", nargs="+", default=list(LANGUAGES), help="Generated languages (default: all).")
     parser.add_argument("--asm-repo", type=Path, help="Full ASM repository checkout (defaults to ASM_REPO/.env/target/asm).")
