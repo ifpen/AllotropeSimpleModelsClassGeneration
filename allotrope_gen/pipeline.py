@@ -24,13 +24,16 @@ from .command import build_cmd, build_commons_cmd, interpolate
 from .config import COMMON_YAML_FILES, LANGUAGES, OUTPUT, SPECS, LanguageConfig
 from .ontology import enrich_spec_descriptions
 from .patch import (
+    add_csharp_commons_registry,
     add_csharp_package_reference,
     add_java_dependency,
     add_npm_peer_dependency,
     PatchError,
     patch_java_pom,
+    patch_csharp_optional_enum_writes,
     patch_nan_support,
     patch_python_package,
+    register_csharp_commons_converters,
 )
 from .schema import (
     bundle_spec,
@@ -141,6 +144,13 @@ def generate_commons(
             all_ok &= _patch_nan(
                 cfg, out, "", nan_capable_properties(merged_commons_schemas()), dry_run,
             )
+            if cfg.generator == "csharp":
+                try:
+                    patch_csharp_optional_enum_writes(out, dry_run)
+                    add_csharp_commons_registry(out, cfg.package_fn(""), dry_run)
+                except PatchError as exc:
+                    print(f"[ERROR] {exc}", file=sys.stderr)
+                    all_ok = False
         else:
             all_ok = False
 
@@ -210,8 +220,18 @@ def generate_specs(
                 if lang == "java":
                     patch_java_pom(out / "pom.xml", dry_run)
                 if common_schemas:
-                    declare_commons_dependency(spec, lang, out, common_schemas, dry_run)
+                    try:
+                        declare_commons_dependency(spec, lang, out, common_schemas, dry_run)
+                    except PatchError as exc:
+                        print(f"[ERROR] {exc}", file=sys.stderr)
+                        all_ok = False
                 all_ok &= _patch_nan(cfg, out, spec, nan_properties, dry_run)
+                if cfg.generator == "csharp":
+                    try:
+                        patch_csharp_optional_enum_writes(out, dry_run)
+                    except PatchError as exc:
+                        print(f"[ERROR] {exc}", file=sys.stderr)
+                        all_ok = False
             else:
                 all_ok = False
 
@@ -246,6 +266,7 @@ def declare_commons_dependency(
         )
     elif cfg.generator == "csharp":
         add_csharp_package_reference(output_dir, commons_name, cfg.commons_version, dry_run)
+        register_csharp_commons_converters(output_dir, commons_name, dry_run)
     elif cfg.generator == "typescript-angular":
         add_npm_peer_dependency(output_dir / "package.json", commons_name, cfg.commons_version, dry_run)
     elif cfg.generator == "python":

@@ -11,11 +11,14 @@ import pytest
 from allotrope_gen.patch import (
     _MAVEN_NS,
     PatchError,
+    add_csharp_commons_registry,
     add_csharp_package_reference,
     add_java_dependency,
     add_npm_peer_dependency,
+    patch_csharp_optional_enum_writes,
     patch_nan_support,
     patch_python_package,
+    register_csharp_commons_converters,
 )
 
 NS = {"m": _MAVEN_NS}
@@ -203,3 +206,75 @@ class TestPatchNanSupport:
         (tmp_path / "model" / "secondsQuantityValue.ts").write_text("value: string;\n", encoding="utf-8")
         with pytest.raises(PatchError):
             patch_nan_support("typescript-angular", tmp_path, "@x/y", NAN)
+
+
+def _host(project: Path, converters: list[str]) -> Path:
+    """Write a minimal generated ``HostConfiguration.cs``."""
+    (project / "Client").mkdir(parents=True, exist_ok=True)
+    host = project / "Client" / "HostConfiguration.cs"
+    host.write_text(
+        "".join(f"            _jsonOptions.Converters.Add(new {c}());\n" for c in converters)
+        + "            JsonSerializerOptionsProvider jsonSerializerOptionsProvider = new JsonSerializerOptionsProvider(_jsonOptions);\n",
+        encoding="utf-8",
+    )
+    return host
+
+
+class TestCsharpConverterRegistration:
+    def test_commons_registry_lists_model_converters(self, tmp_path: Path):
+        project = tmp_path / "src" / "Commons"
+        (project / "Model").mkdir(parents=True)
+        (project / "Model" / "QuantityValue.cs").write_text("", encoding="utf-8")
+        _host(project, ["JsonStringEnumConverter", "DateTimeJsonConverter", "QuantityValueJsonConverter"])
+        add_csharp_commons_registry(tmp_path, "Commons.Ns")
+        registry = (project / "Client" / "CommonsJsonConverters.cs").read_text(encoding="utf-8")
+        assert "options.Converters.Add(new Commons.Ns.Model.QuantityValueJsonConverter());" in registry
+        assert "DateTimeJsonConverter" not in registry
+        assert "namespace Commons.Ns.Client" in registry
+
+    def test_commons_registry_requires_converters(self, tmp_path: Path):
+        _host(tmp_path / "src" / "Commons", ["JsonStringEnumConverter"])
+        with pytest.raises(PatchError):
+            add_csharp_commons_registry(tmp_path, "Commons.Ns")
+
+    def test_spec_host_registers_commons_once(self, tmp_path: Path):
+        host = _host(tmp_path / "src" / "Gc", ["PeakJsonConverter"])
+        for _ in range(2):
+            register_csharp_commons_converters(tmp_path, "Commons.Ns")
+        text = host.read_text(encoding="utf-8")
+        call = "Commons.Ns.Client.CommonsJsonConverters.AddTo(_jsonOptions);"
+        assert text.count(call) == 1
+        assert text.index(call) < text.index("JsonSerializerOptionsProvider jsonSerializerOptionsProvider")
+
+
+class TestCsharpOptionalEnumWrites:
+    SOURCE = (
+        "            var scaleRawValue = Comp.ScaleEnumToJsonValue(comp.ScaleOption.Value.Value);\n"
+        '            writer.WriteString("scale", scaleRawValue);\n'
+        "            var kindRawValue = Comp.KindEnumToJsonValue(comp.Kind);\n"
+        '            writer.WriteString("kind", kindRawValue);\n'
+    )
+
+    def test_guards_optional_enums_only(self, tmp_path: Path):
+        model = tmp_path / "src" / "Lib" / "Model"
+        model.mkdir(parents=True)
+        source = model / "Comp.cs"
+        source.write_text(self.SOURCE, encoding="utf-8")
+        patch_csharp_optional_enum_writes(tmp_path)
+        patch_csharp_optional_enum_writes(tmp_path)  # idempotent
+        text = source.read_text(encoding="utf-8")
+        assert text.count("if (comp.ScaleOption.IsSet)") == 1
+        assert 'writer.WriteNull("scale");' in text
+        # Required enums are left untouched.
+        assert "            var kindRawValue = Comp.KindEnumToJsonValue(comp.Kind);\n" in text
+
+    def test_unexpected_shape_fails(self, tmp_path: Path):
+        model = tmp_path / "src" / "Lib" / "Model"
+        model.mkdir(parents=True)
+        (model / "Comp.cs").write_text(
+            "            var scaleRawValue = Comp.ScaleEnumToJsonValue(comp.ScaleOption.Value.Value);\n"
+            '            writer.WriteNumber("scale", scaleRawValue);\n',
+            encoding="utf-8",
+        )
+        with pytest.raises(PatchError):
+            patch_csharp_optional_enum_writes(tmp_path)
