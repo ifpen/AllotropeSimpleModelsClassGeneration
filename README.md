@@ -40,7 +40,7 @@ The generated model classes can be used to deserialize and serialize ASM JSON
 with the appropriate JSON library for the target language.
 
 ```java
-import fr.ifpen.allotropeconverters.allotrope_models.GasChromatographySimpleModel;
+import fr.ifpen.allotropeconverters.allotrope_models.gc.GasChromatographySimpleModel;
 
 public static GasChromatographySimpleModel readAllotropeFromInputStream(InputStream inputStream) throws IOException {
     ObjectMapper objectMapper = JsonMapper.builder().addModule(new JavaTimeModule()).build();
@@ -51,6 +51,14 @@ public static GasChromatographySimpleModel readAllotropeFromInputStream(InputStr
     );
 }
 ```
+
+Each instrument package (`gc`, `dsc`, `hplc`) depends on the commons package of
+the same language and reuses its classes (quantity values, core documents,
+datacube) instead of re-declaring them. ASM writes an unavailable quantity as the
+JSON string `"NaN"`; every client reads it into, and writes it back from, a
+floating-point NaN (`QuantityValue.value`, TypeScript type `number | 'NaN'`).
+In C#, resolve `JsonSerializerOptionsProvider` from the services configured by an
+instrument package's `HostConfiguration`; it registers the commons converters too.
 
 ## Available instrument models
 
@@ -68,6 +76,12 @@ The generated C# package and namespace follow the existing naming convention:
 - NuGet package: `IFPEN.AllotropeConverters.AllotropeModels.Hplc`
 - Root model namespace: `IFPEN.AllotropeConverters.AllotropeModels.Hplc.Model`
 - Root model: `LiquidChromatographySimpleModel`
+- Shared classes: NuGet package `IFPEN.AllotropeConverters.AllotropeModels.Commons`
+
+Every package is versioned after its specification (`info.version`, e.g. `2026.09.0`,
+published as `2026.9.0` on npm, NuGet and PyPI). The earlier GC-only NuGet package
+`IFPEN.AllotropeConverters.AllotropeModels` (2025.6.x) is superseded by
+`IFPEN.AllotropeConverters.AllotropeModels.Gc`.
 
 Generate all languages for the HPLC model locally with:
 
@@ -218,20 +232,38 @@ Python packaging uses `build` (install it with `python -m pip install build`).
 You can check the optional Java and C# build commands with `mvn --version` and
 `dotnet --version`.
 
-Alternatively, after generation, use the repository's Docker-based verification
-helper to run the language-specific verification commands in containers (Java
-and C# compile; Python builds a wheel; TypeScript installs its npm dependencies):
+After generation, `generate.py` builds the generated clients with the local SDKs
+(disable with `--no-verify-builds`); the same step can be run on its own:
 
 ```powershell
 python verify_builds.py --specs commons hplc
 ```
 
-This option requires Docker Desktop (or a Docker-compatible engine exposed as
-`docker` on `PATH`) to be installed and running. The helper uses the generated
-files from `target/generated-sources/`; generate the desired modules first.
-Docker is used for **client build verification**, not for `generate.py` itself,
-so Python, Node.js/npm, Java, and the generator CLI are still needed on the host
-to generate the sources.
+Commons is always built first and published to local feeds under
+`target/local-packages/` (Maven local repository, NuGet feed, npm tarball),
+because instrument packages depend on it.
+
+#### Validating deserialization of the ASM examples
+
+`verify_deserialization.py` checks every spec/language pair against the official
+examples of the newest `REC/YYYY/MM` release in the ASM checkout whose
+`$asm.manifest` the spec accepts:
+
+```powershell
+python verify_deserialization.py                       # regenerate, then all pairs
+python verify_deserialization.py --no-generate --specs gc --langs java
+```
+
+Java, C# and Python deserialize each example, serialize it back and must
+reproduce it without any dropped, altered or added member (Java additionally
+fails on unknown properties). TypeScript type-checks each example as an object
+literal with `satisfies <RootModel>` under `tsc --strict`. A variant of each
+technique's first example with one quantity set to `"NaN"` is checked as well.
+A few members of the official examples that the official schema does not
+declare at that location (for example the misspelled `InChiKey molecular
+structure`) are listed, with their reason, in `KNOWN_EXAMPLE_DEVIATIONS` and
+removed before probing; every removal is printed. Maven, the .NET SDK, Node.js
+and Python must be available, plus NuGet and npm registry access.
 
 During instrument-spec generation, missing field descriptions are resolved from
 the Allotrope Foundation Ontology through the EMBL-EBI OLS API. The first run

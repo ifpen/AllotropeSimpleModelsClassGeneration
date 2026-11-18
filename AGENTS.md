@@ -7,12 +7,19 @@ It ingests **OpenAPI 3.1 YAML specifications** that describe
 [Allotrope Simple Models (ASM)](https://www.allotrope.org/asm) and emits idiomatic client
 libraries in four languages:
 
-| Language | Package registry | Package naming |
-|---|---|---|
-| Java | Maven Central | `fr.ifpen.allotropeconverters:allotrope-models-{spec}` |
-| TypeScript (Angular) | npm | `@ifpen/allotrope-models-{spec}` |
-| C# | NuGet | `IFPEN.AllotropeConverters.AllotropeModels.{Spec}` |
-| Python | PyPI | `ifpen.allotrope_models.{spec}` |
+| Language | Package registry | Package naming | Commons package |
+|---|---|---|---|
+| Java | Maven Central | `fr.ifpen.allotropeconverters:allotrope-models-{spec}` | `allotrope-models-commons` |
+| TypeScript (Angular) | npm | `@ifpen/allotrope-models-{spec}` | `@ifpen/allotrope-models-commons` |
+| C# | NuGet | `IFPEN.AllotropeConverters.AllotropeModels.{Spec}` | `IFPEN.AllotropeConverters.AllotropeModels.Commons` |
+| Python | PyPI | `ifpen.allotrope_models.{spec}` | `ifpen.allotrope_models` |
+
+Keep the `AllotropeModels`/`allotrope-models` segment: the `fr.ifpen.allotropeconverters`
+family also contains converters (`gc2asm`, `ir2asm`, `ASMUtils`). Every package is published
+at its spec's OpenAPI `info.version` (commons: `COMMONS_VERSION` in `allotrope_gen/config.py`);
+npm, NuGet and PyPI use the unpadded form (`2026.9.0`). The bare NuGet id
+`IFPEN.AllotropeConverters.AllotropeModels` and the Maven artifact `allotrope-models`
+(2025.x) are the earlier all-in-one GC packages; do not reuse them.
 
 The pipeline splits schemas into two layers:
 
@@ -28,6 +35,8 @@ The pipeline splits schemas into two layers:
 ```
 AllotropeSimpleModelsClassGeneration/
 ├── generate.py                    # Thin CLI entry point
+├── verify_builds.py               # Builds generated clients (commons first, local feeds)
+├── verify_deserialization.py      # Round-trips official ASM examples in every client
 ├── .mise.toml                     # Pinned project toolchain for Docker Sandbox
 ├── sbxenv.yaml                    # Docker Sandbox OpenCode environment
 ├── .sandbox/mise-network/          # Project-specific tool-download egress policy
@@ -60,6 +69,10 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── test_pipeline.py           # Pipeline runner tests
 │   ├── test_schema.py             # Schema collision and extraction tests
 │   ├── test_asm.py                # External ASM checkout discovery tests
+│   ├── test_bundle.py             # Spec bundling / mapping classification tests
+│   ├── test_commons_patches.py    # Commons dependency, NaN and C# patch tests
+│   ├── test_verify_deserialization.py # Example round-trip helper tests
+│   ├── test_deserialization.py    # Full spec × language example matrix (toolchains + ASM)
 │   └── test_hplc_schema.py        # ASM-backed HPLC conformance tests
 ├── target/
 │   └── asm/                       # Optional full upstream ASM clone (git-ignored)
@@ -225,23 +238,44 @@ the host prerequisites above.
 common.yaml ──┐
 datacube.yaml ─┤
 core.yaml ─────┘─ merged_commons_yaml() ──► openapi-generator ──► commons/{lang}/
-               │
-gc.yaml ────────┤─ schemas_referenced_from_commons()
-                │   (computes importMappings)
+               │                                  (+ NaN / C# converter patches)
+gc.yaml ────────┤─ bundle_spec()  → target/bundled-specs/gc.bundled.yaml
+                │   (local copies of reachable commons schemas; import +
+                │    schema mappings onto the commons package)
                 └──► openapi-generator ──► gc/{lang}/
+                                           (+ commons dependency declaration)
 ```
 
 1. **Commons merge** — `generate_commons()` merges `common.yaml` + `datacube.yaml` + `core.yaml` into a
    single `commons-merged.yaml` (written under `target/`), then calls the generator once per
    language. Schema name collisions between the two files are a hard error.
-2. **Spec generation** — `generate_specs()` scans each instrument YAML for `$ref`s to
-   commons files, builds `--import-mappings` so the generator does not re-emit those classes,
-   then calls the generator. Before generation, missing inline-field descriptions are resolved
+2. **Spec generation** — `generate_specs()` bundles each instrument YAML with the commons
+   schemas it reaches (`bundle_spec()`) and passes their names as both `--import-mappings` and
+   `--schema-mappings`, so spec packages reference the commons classes instead of re-emitting
+   them. Bundling is required: openapi-generator's OAS 3.1 parser dereferences external
+   `./core.yaml#/...` refs *inline*, which silently defeats the mappings and re-emits every
+   commons class under long path-derived names. Primitive aliases (e.g. `CoreTNamed`) are not
+   mapped because commons has no class for them. After generation the commons package is
+   declared as a dependency (Maven dependency, NuGet `PackageReference`, npm peer dependency,
+   Python requirement plus imports; the spec's parent `__init__.py` files are removed because
+   they belong to commons). Before generation, missing inline-field descriptions are resolved
    by exact `$asm.property-class` IRI when available, an unambiguous exact ontology label, or a
    unique official-reference alias.
    Unresolved fields remain unchanged and are reported as warnings.
 3. **Java pom.xml patch** — After Java generation, `patch_java_pom()` idempotently injects
    the `central-publishing-maven-plugin` required for Maven Central deployment.
+4. **Post-generation patches** (`allotrope_gen/patch.py`, each fails loudly if the generated
+   code no longer matches):
+   - properties marked `x-asm-nan: true` (`QuantityValue.value` and its unit wrappers) accept
+     and emit the ASM `"NaN"` string — Python `AsmDouble`, C# `AsmDouble`, TS `number | 'NaN'`;
+     Jackson handles it natively;
+   - C#: commons exposes `CommonsJsonConverters.AddTo(options)` and every spec
+     `HostConfiguration` calls it; optional enum writes are guarded (generator 7.23.0 bug).
+
+Validate the result with `python verify_deserialization.py`: every spec/language pair must
+round-trip the official REC examples losslessly (TypeScript: strict `satisfies` type-check).
+Members of official examples that the official schema does not declare at that location are
+not modeled; list them with a reason in `KNOWN_EXAMPLE_DEVIATIONS` instead.
 
 ---
 
@@ -282,9 +316,17 @@ will **fail with an error** — resolve the collision manually.
 
 The workflow `generate.yml` runs on:
 
-- **Push to `main`** — only when `src/main/resources/**.yaml`, `generate.py`, the `allotrope_gen/` package, `pyproject.toml`, or `uv.lock` changes.
-- **Manual trigger** (`workflow_dispatch`) — accepts optional `specs`, `langs`, and
-  `dry_run` inputs.
+- **Push to `main`** — only when `src/main/resources/**.yaml`, `generate.py`, `verify_builds.py`,
+  the `allotrope_gen/` package, `pyproject.toml`, `uv.lock`, `.mise.toml`, `openapitools.json`,
+  or the workflow itself changes.
+- **Manual trigger** (`workflow_dispatch`) — accepts optional `specs`, `langs`, `dry_run`,
+  and `verify_builds` inputs.
+
+The `generate` job installs the toolchain pinned in `.mise.toml` with `jdx/mise-action`
+(the same versions as the Docker Sandbox), runs `uv sync --locked --all-extras`, then
+`uv run python generate.py`, which builds every generated module (commons first). Publish
+jobs resolve commons from the same run's artifact (local Maven install / NuGet feed) and
+npm specs wait for `publish-npm-commons`. Lint workflow changes with `actionlint`.
 
 Job graph:
 
@@ -437,6 +479,16 @@ specifications are modeled. They complement (but do not override) the orchestrat
   languages (Java, Python, TypeScript, C#, etc.) for each new or modified YAML file.
   This implies running `python generate.py` (or a focused subset) and verifying the
   presence of classes under `target/generated-sources/` for every requested language.
+- 2026-11-18 - openapi-generator (7.23.0) inlines external `$ref`s of OAS 3.1 specs, so
+  `--import-mappings` alone never matched and every spec package duplicated the commons
+  classes. Specs are now bundled and mapped with import + schema mappings; check new specs
+  with `verify_deserialization.py`, not only by compiling.
+- 2026-11-18 - Validation-only `oneOf`/`anyOf` (e.g. `required: [retention time]` vs
+  `[retention volume]`) and `$ref` with sibling keywords break generated models (wrapper
+  classes, silently dropped siblings). Merge properties into one object and use named unit
+  wrappers such as `NanometersQuantityValue` instead.
+- 2026-11-18 - Property names must match the official REC schema exactly (e.g.
+  `peak width at 4.4 % of height`); ASM unit symbols use Greek mu U+03BC (`μm`, `μL`).
 
 ## License
 
