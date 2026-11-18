@@ -32,6 +32,10 @@ on:
         description: 'Build generated modules before publishing'
         type: boolean
         default: true
+      prerelease:
+        description: 'Pre-release label to publish (alpha.N, beta.N or rc.N; empty = release)'
+        required: false
+        default: ''
 
 jobs:
   prepare:
@@ -92,6 +96,7 @@ jobs:
           LANGS: ${{ github.event.inputs.langs }}
           DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
           VERIFY_BUILDS: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.verify_builds != 'false' }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
         run: |
           set -euo pipefail
           args=()
@@ -103,6 +108,7 @@ jobs:
             read -r -a selected_langs <<< "$LANGS"
             args+=(--langs "${selected_langs[@]}")
           fi
+          if [[ -n "$PRERELEASE" ]]; then args+=(--prerelease "$PRERELEASE"); fi
           if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
           if [[ "$VERIFY_BUILDS" != "true" || "$DRY_RUN" == "true" ]]; then
             args+=(--no-verify-builds)
@@ -175,9 +181,15 @@ jobs:
         working-directory: target/generated-sources/commons/typescript
         # ``npm install`` runs the ``prepare`` build; ng-packagr writes the
         # publishable Angular package (compiled code + metadata) to dist/.
-        run: npm install && npm publish ./dist --access public
+        # Pre-releases go to their dist-tag (alpha/beta/rc), never to latest.
+        run: |
+          tag=latest
+          if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
+          npm install
+          npm publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
 
   publish-npm-specs:
     needs: [prepare, generate, publish-npm-commons]
@@ -197,9 +209,15 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Publish ${{ matrix.spec }} npm package
         working-directory: target/generated-sources/${{ matrix.spec }}/typescript
-        run: npm install && npm publish ./dist --access public
+        # Pre-releases go to their dist-tag (alpha/beta/rc), never to latest.
+        run: |
+          tag=latest
+          if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
+          npm install
+          npm publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
 
   publish-nuget:
     needs: [prepare, generate]
