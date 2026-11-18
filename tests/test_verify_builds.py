@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from verify_builds import main, verify_module_lang, verify_modules
+from verify_builds import LOCAL_PACKAGES, build_commands, main, verify_module_lang, verify_modules
 
 
 class TestVerifyModuleLang:
@@ -23,7 +23,8 @@ class TestVerifyModuleLang:
             res = verify_module_lang("gc", "java", dry_run=False)
             assert res is True
             assert mock_run.call_count == 1
-            assert mock_run.call_args.args[0] == ("mvn", "--batch-mode", "-DskipTests", "compile")
+            # ``install`` publishes commons to the local Maven repository.
+            assert mock_run.call_args.args[0] == ("mvn", "--batch-mode", "-DskipTests", "install")
             assert mock_run.call_args.kwargs["cwd"] == out_dir
 
     @patch("subprocess.run")
@@ -67,10 +68,9 @@ class TestVerifyModuleLang:
         mock_run.return_value = MagicMock(returncode=0)
         with patch("verify_builds.OUTPUT", tmp_path / "target" / "generated-sources"):
             assert verify_module_lang("gc", "typescript-angular") is True
-        assert [call.args[0] for call in mock_run.call_args_list] == [
-            ("npm", "install", "--ignore-scripts"),
-            ("npm", "run", "build"),
-        ]
+        commands = [call.args[0] for call in mock_run.call_args_list]
+        assert commands[0][:4] == ("npm", "install", "--ignore-scripts", "--no-save")
+        assert commands[1] == ("npm", "run", "build")
 
     @patch("subprocess.run", return_value=MagicMock(returncode=1))
     def test_typescript_does_not_build_if_install_fails(self, mock_run: MagicMock, tmp_path: Path):
@@ -85,6 +85,33 @@ class TestVerifyModuleLang:
     def test_verify_modules_checks_all_pairs(self, mock_verify: MagicMock):
         assert verify_modules(["commons", "gc"], ["java"]) is False
         assert mock_verify.call_count == 2
+
+    @patch("verify_builds.verify_module_lang", return_value=True)
+    def test_commons_is_built_first_and_added_when_missing(self, mock_verify: MagicMock):
+        assert verify_modules(["gc", "dsc"], ["java", "python"]) is True
+        assert [c.args[:2] for c in mock_verify.call_args_list] == [
+            ("commons", "java"), ("gc", "java"), ("dsc", "java"),
+            ("commons", "python"), ("gc", "python"), ("dsc", "python"),
+        ]
+
+    @patch("verify_builds.verify_module_lang", return_value=False)
+    def test_specs_are_not_built_when_commons_fails(self, mock_verify: MagicMock):
+        assert verify_modules(["gc"], ["java"]) is False
+        mock_verify.assert_called_once()
+
+
+class TestBuildCommands:
+    def test_csharp_commons_packs_into_local_feed(self):
+        assert build_commands("commons", "csharp") == [
+            ("dotnet", "pack", "--configuration", "Release", "--output", str(LOCAL_PACKAGES / "nuget")),
+        ]
+
+    def test_csharp_spec_restores_from_local_feed(self):
+        (command,) = build_commands("gc", "csharp")
+        assert f"-p:RestoreAdditionalProjectSources={LOCAL_PACKAGES / 'nuget'}" in command
+
+    def test_typescript_commons_packs_dist(self):
+        assert build_commands("commons", "typescript-angular")[-1][:3] == ("npm", "pack", "./dist")
 
 
 class TestVerifyBuildsMain:

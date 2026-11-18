@@ -10,6 +10,8 @@ errors rather than silently skipped checks.
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -20,14 +22,59 @@ sys.path.insert(0, str(ROOT))
 from allotrope_gen.config import LANGUAGES, OUTPUT, SPECS
 
 
-BUILD_COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
-    "java": (("mvn", "--batch-mode", "-DskipTests", "compile"),),
-    "csharp": (("dotnet", "build", "--configuration", "Release"),),
-    "python": (("python", "-m", "build"),),
-    # Generated clients have no lockfile. Install dev dependencies without
-    # running the package's prepare hook, then invoke the Angular build itself.
-    "typescript-angular": (("npm", "install", "--ignore-scripts"), ("npm", "run", "build")),
+#: Local package feeds where commons artefacts are published for spec builds.
+LOCAL_PACKAGES: Path = ROOT / "target" / "local-packages"
+#: Isolated NuGet cache: commons keeps the same version between generations,
+#: so a shared cache could serve a stale commons build to the spec builds.
+NUGET_PACKAGES: Path = ROOT / "target" / "nuget-packages"
+
+#: Build manifest whose presence is required before building.
+REQUIRED_MANIFESTS: dict[str, str] = {
+    "java": "pom.xml",
+    "csharp": "*.sln",
+    "python": "pyproject.toml",
+    "typescript-angular": "package.json",
 }
+
+
+def build_commands(module: str, lang: str) -> list[tuple[str, ...]]:
+    """Return the build commands for one module/language pair.
+
+    Instrument packages depend on the commons package, so commons builds also
+    publish their artefact locally where the spec builds resolve it:
+
+    * Java installs every module into the local Maven repository;
+    * C# packs commons into a local NuGet feed used as an extra restore source;
+    * TypeScript packs the built commons library into an npm tarball that the
+      spec build installs to satisfy its peer dependency;
+    * Python builds need no dependency resolution.
+    """
+    commons = module == "commons"
+    if lang == "java":
+        return [("mvn", "--batch-mode", "-DskipTests", "install")]
+    if lang == "csharp":
+        feed = LOCAL_PACKAGES / "nuget"
+        if commons:
+            return [("dotnet", "pack", "--configuration", "Release", "--output", str(feed))]
+        return [("dotnet", "build", "--configuration", "Release",
+                 f"-p:RestoreAdditionalProjectSources={feed}")]
+    if lang == "python":
+        return [("python", "-m", "build")]
+    if lang == "typescript-angular":
+        # Generated clients have no lockfile. Install dev dependencies without
+        # running the package's prepare hook, then invoke the Angular build.
+        tarballs = LOCAL_PACKAGES / "npm"
+        if commons:
+            return [
+                ("npm", "install", "--ignore-scripts"),
+                ("npm", "run", "build"),
+                ("npm", "pack", "./dist", "--pack-destination", str(tarballs)),
+            ]
+        return [
+            ("npm", "install", "--ignore-scripts", "--no-save", *map(str, sorted(tarballs.glob("*.tgz")))),
+            ("npm", "run", "build"),
+        ]
+    return []
 
 
 def verify_module_lang(
@@ -38,25 +85,17 @@ def verify_module_lang(
 ) -> bool:
     """Build one generated module with its native language toolchain."""
     output_dir = OUTPUT / module / LANGUAGES[lang].output_subdir
-    if lang == "typescript-angular" and module == "commons":
-        output_dir /= "common"
     if not output_dir.is_dir():
         print(f"[ERROR] Generated output is missing for {module} ({lang}): {output_dir}", file=sys.stderr)
         return False
 
-    commands = BUILD_COMMANDS.get(lang)
-    if commands is None:
+    commands = build_commands(module, lang)
+    if not commands:
         print(f"[ERROR] No build command configured for language: {lang}", file=sys.stderr)
         return False
 
-    required_manifest = {
-        "java": "pom.xml",
-        "csharp": "*.csproj",
-        "python": "pyproject.toml",
-        "typescript-angular": "package.json",
-    }[lang]
-    manifests = list(output_dir.glob(required_manifest))
-    if not manifests:
+    required_manifest = REQUIRED_MANIFESTS[lang]
+    if not list(output_dir.glob(required_manifest)):
         print(
             f"[ERROR] Build manifest {required_manifest!r} is missing for {module} ({lang}) in {output_dir}",
             file=sys.stderr,
@@ -70,9 +109,21 @@ def verify_module_lang(
     if dry_run:
         return True
 
+    env = os.environ.copy()
+    if lang == "csharp":
+        env["NUGET_PACKAGES"] = str(NUGET_PACKAGES)
+        if module == "commons":
+            # Drop the previously extracted commons package (same version).
+            commons_id = LANGUAGES[lang].package_fn("").lower()
+            shutil.rmtree(NUGET_PACKAGES / commons_id, ignore_errors=True)
+            shutil.rmtree(LOCAL_PACKAGES / "nuget", ignore_errors=True)
+    if lang == "typescript-angular" and module == "commons":
+        shutil.rmtree(LOCAL_PACKAGES / "npm", ignore_errors=True)
+        (LOCAL_PACKAGES / "npm").mkdir(parents=True, exist_ok=True)
+
     try:
         for command in commands:
-            result = subprocess.run(command, cwd=output_dir, check=False)
+            result = subprocess.run(command, cwd=output_dir, env=env, check=False)
             if result.returncode != 0:
                 return False
     except OSError as exc:
@@ -87,11 +138,24 @@ def verify_modules(
     *,
     dry_run: bool = False,
 ) -> bool:
-    """Verify all requested module/language pairs, returning False on any failure."""
+    """Verify all requested module/language pairs, returning False on any failure.
+
+    Commons is built first; it is added automatically when only instrument
+    modules are requested, because their builds resolve the commons package.
+    """
+    ordered = ["commons", *[m for m in modules if m != "commons"]]
     success = True
-    for module in modules:
-        for lang in langs:
-            if not verify_module_lang(module, lang, dry_run=dry_run):
+    for lang in langs:
+        commons_ok = True
+        for module in ordered:
+            if module != "commons" and not commons_ok:
+                print(f"[FAIL] Skipping {module} ({lang}): commons did not build", file=sys.stderr)
+                success = False
+                continue
+            ok = verify_module_lang(module, lang, dry_run=dry_run)
+            if module == "commons":
+                commons_ok = ok
+            if not ok:
                 print(f"[FAIL] Build failed for module: {module}, language: {lang}", file=sys.stderr)
                 success = False
 
