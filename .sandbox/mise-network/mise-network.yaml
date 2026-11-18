@@ -21,3 +21,4 @@ capabilities:
           - archive.apache.org
           - builds.dotnet.microsoft.com
           - api.github.com
+          - api.nuget.org
