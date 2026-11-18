@@ -128,9 +128,20 @@ components:
 
     AsmDatacubeData:
       type: object
-      allOf:
-        - $ref: '#/components/schemas/AsmDatacubeDimensionData'
-        - $ref: '#/components/schemas/AsmDatacubeMeasureData'
+      properties:
+        dimensions:
+          type: array
+          items:
+            type: array
+            items: {}
+        measures:
+          type: array
+          items:
+            type: array
+            items: {}
+        points:
+          type: array
+          items: {}
 
     AsmDatacubeDimensionData:
       type: object
@@ -138,16 +149,13 @@ components:
         dimensions:
           type: array
           items:
-            oneOf:
-              - $ref: '#/components/schemas/AsmDatacubeDimensionArray'
-              - $ref: '#/components/schemas/AsmDatacubeFunction'
+            type: array
+            items: {}
       required: [dimensions]
 
     AsmDatacubeDimensionArray:
-      oneOf:
-        - $ref: '#/components/schemas/AsmNumberArray'
-        - $ref: '#/components/schemas/AsmBooleanArray'
-        - $ref: '#/components/schemas/AsmStringArray'
+      type: array
+      items: {}
 
     AsmDatacubeFunction:
       type: object
@@ -166,27 +174,21 @@ components:
           default: linear
 
     AsmDatacubeMeasureData:
-      oneOf:
-        - type: object
-          properties:
-            measures:
-              type: array
-              items:
-                $ref: '#/components/schemas/AsmDatacubeMeasureArray'
-          required: [measures]
-        - type: object
-          properties:
-            points:
-              type: array
-              items:
-                $ref: '#/components/schemas/AsmDatacubeTuple'
-          required: [points]
+      type: object
+      properties:
+        measures:
+          type: array
+          items:
+            type: array
+            items: {}
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/AsmDatacubeTuple'
 
     AsmDatacubeMeasureArray:
-      oneOf:
-        - $ref: '#/components/schemas/AsmNumberOrNullArray'
-        - $ref: '#/components/schemas/AsmBooleanOrNullArray'
-        - $ref: '#/components/schemas/AsmStringOrNullArray'
+      type: array
+      items: {}
 
     AsmNumberArray:
       type: array

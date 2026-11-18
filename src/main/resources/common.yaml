@@ -26,12 +26,14 @@ components:
             - coefficient of variation role
             - median absolute deviation role
         value:
+          description: >-
+            Numeric quantity. ASM encodes an unavailable value as the JSON string "NaN";
+            generated clients read and write it as a floating-point NaN.
           type: number
           format: double
         unit:
           type: string
       required:
-        - unit
         - value
 
     StringValue:
@@ -169,7 +171,8 @@ components:
           properties:
             unit:
               type: string
-              enum: ["µm"]
+              enum: [ "\u03BCm" ]
+              x-enum-varnames: [ Micro_m ]
 
     SecondsQuantityValue:
       allOf:
@@ -199,6 +202,83 @@ components:
             unit:
               type: string
               enum: [ "mL" ]
+
+    NanometersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "nm" ]
+
+    CentimetersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "cm" ]
+
+    CubicMillimetersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "mm^3" ]
+              x-enum-varnames: [ mm3 ]
+
+    MillilitersPerMinuteQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "mL/min" ]
+              x-enum-varnames: [ mL_per_min ]
+
+    CountsQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "#" ]
+              x-enum-varnames: [ count ]
+
+    MassToChargeQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "m/z" ]
+              x-enum-varnames: [ m_per_z ]
+
+    SiemensQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "S" ]
+
+    SiemensSecondsQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "S.s" ]
+              x-enum-varnames: [ S_s ]
 
     HertzQuantityValue:
       allOf:

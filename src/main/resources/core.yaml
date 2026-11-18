@@ -37,7 +37,8 @@ components:
     CoreElectronicProjectRecord:
       type: object
       properties:
-        description: {}
+        description:
+          type: string
         start time:
           $ref: ./common.yaml#/components/schemas/DateTimeValue
         written name:
@@ -151,7 +152,8 @@ components:
       properties:
         datum label:
           type: string
-        description: {}
+        description:
+          type: string
         identifier:
           type: string
         '@index':
@@ -523,7 +525,8 @@ components:
           $ref: '#/components/schemas/DataProcessingDocument'
         data source aggregate document:
           $ref: '#/components/schemas/CoreDataSourceAggregateDocument'
-        description: {}
+        description:
+          type: string
         electronic project record:
           $ref: '#/components/schemas/CoreElectronicProjectRecord'
         group identifier:
@@ -552,7 +555,8 @@ components:
           type: string
         database identifier:
           type: string
-        description: {}
+        description:
+          type: string
         fingerprint identifier:
           type: string
         match quality index aggregate document:
@@ -588,13 +592,17 @@ components:
       properties:
         algorithm name:
           type: string
-        description: {}
+        description:
+          type: string
         lower limit:
-          $ref: ./common.yaml#/components/schemas/DoubleValue
+          type: number
+          format: double
         match quality index:
-          $ref: ./common.yaml#/components/schemas/DoubleValue
+          type: number
+          format: double
         upper limit:
-          $ref: ./common.yaml#/components/schemas/DoubleValue
+          type: number
+          format: double
       required:
       - match quality index
     SynonymAggregateDocument:
