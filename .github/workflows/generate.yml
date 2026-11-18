@@ -11,10 +11,7 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - 'requirements*.txt'
-      - '.devcontainer/**'
-      - '.python-version'
-      - '.nvmrc'
-      - '.tool-versions'
+      - '.mise.toml'
       - 'openapitools.json'
       - '.github/workflows/generate.yml'
   workflow_dispatch:
@@ -79,31 +76,38 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - name: Generate and verify in the Dev Container
-        uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca # v0.3
+      # Same pinned toolchain as the Docker Sandbox: Python, Node.js, JDK,
+      # Maven, .NET SDK, uv and openapi-generator-cli from .mise.toml.
+      - name: Install the pinned toolchain
+        uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          configFile: .devcontainer/devcontainer.json
-          runCmd: |
-            set -euo pipefail
-            args=()
-            if [[ -n "$SPECS" ]]; then
-              read -r -a selected_specs <<< "$SPECS"
-              args+=(--specs "${selected_specs[@]}")
-            fi
-            if [[ -n "$LANGS" ]]; then
-              read -r -a selected_langs <<< "$LANGS"
-              args+=(--langs "${selected_langs[@]}")
-            fi
-            if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
-            if [[ "$VERIFY_BUILDS" != "true" || "$DRY_RUN" == "true" ]]; then
-              args+=(--no-verify-builds)
-            fi
-            python generate.py "${args[@]}"
-          env: |
-            SPECS=${{ github.event.inputs.specs }}
-            LANGS=${{ github.event.inputs.langs }}
-            DRY_RUN=${{ needs.prepare.outputs.dry_run }}
-            VERIFY_BUILDS=${{ github.event_name != 'workflow_dispatch' || github.event.inputs.verify_builds != 'false' }}
+          version: 2026.5.2
+          install: true
+          cache: true
+      - name: Install Python dependencies
+        run: uv sync --locked --all-extras
+      - name: Generate and verify builds
+        env:
+          SPECS: ${{ github.event.inputs.specs }}
+          LANGS: ${{ github.event.inputs.langs }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+          VERIFY_BUILDS: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.verify_builds != 'false' }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ -n "$SPECS" ]]; then
+            read -r -a selected_specs <<< "$SPECS"
+            args+=(--specs "${selected_specs[@]}")
+          fi
+          if [[ -n "$LANGS" ]]; then
+            read -r -a selected_langs <<< "$LANGS"
+            args+=(--langs "${selected_langs[@]}")
+          fi
+          if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          if [[ "$VERIFY_BUILDS" != "true" || "$DRY_RUN" == "true" ]]; then
+            args+=(--no-verify-builds)
+          fi
+          uv run python generate.py "${args[@]}"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ needs.prepare.outputs.dry_run != 'true' }}
@@ -112,6 +116,8 @@ jobs:
           path: |
             target/generated-sources/
             !target/generated-sources/**/node_modules/**
+            !target/generated-sources/**/bin/**
+            !target/generated-sources/**/obj/**
           retention-days: 1
 
   publish-java:
@@ -136,9 +142,17 @@ jobs:
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
+      # Instrument modules depend on the commons artifact of the same run;
+      # resolve it from the local repository instead of racing its publication.
+      - name: Install commons into the local Maven repository
+        if: ${{ matrix.module != 'commons' }}
+        working-directory: target/generated-sources/commons/java
+        run: mvn --batch-mode -DskipTests install
       - name: Publish ${{ matrix.module }} to Maven Central
         working-directory: target/generated-sources/${{ matrix.module }}/java
-        run: mvn --batch-mode deploy -P release
+        # The generated pom signs artifacts in its ``sign-artifacts`` profile;
+        # Maven Central rejects unsigned bundles.
+        run: mvn --batch-mode deploy -P sign-artifacts
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
@@ -158,8 +172,10 @@ jobs:
           node-version: 22.22.1
           registry-url: https://registry.npmjs.org
       - name: Publish commons npm package
-        working-directory: target/generated-sources/commons/typescript/common
-        run: npm install && npm publish --access public
+        working-directory: target/generated-sources/commons/typescript
+        # ``npm install`` runs the ``prepare`` build; ng-packagr writes the
+        # publishable Angular package (compiled code + metadata) to dist/.
+        run: npm install && npm publish ./dist --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -181,7 +197,7 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Publish ${{ matrix.spec }} npm package
         working-directory: target/generated-sources/${{ matrix.spec }}/typescript
-        run: npm install && npm publish --access public
+        run: npm install && npm publish ./dist --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -200,11 +216,19 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 8.0.428
+      # Instrument packages reference the commons package of the same run;
+      # restore it from a local feed instead of racing its publication.
+      - name: Pack commons into a local feed
+        if: ${{ matrix.module != 'commons' }}
+        working-directory: target/generated-sources/commons/csharp
+        run: dotnet pack --configuration Release --output "$RUNNER_TEMP/commons-feed"
       - name: Pack and publish ${{ matrix.module }} NuGet package
         working-directory: target/generated-sources/${{ matrix.module }}/csharp
         run: |
-          dotnet pack --configuration Release
-          dotnet nuget push **/*.nupkg \
+          mkdir -p "$RUNNER_TEMP/commons-feed"
+          dotnet pack --configuration Release --output "$RUNNER_TEMP/packages" \
+            "-p:RestoreAdditionalProjectSources=$RUNNER_TEMP/commons-feed"
+          dotnet nuget push "$RUNNER_TEMP"/packages/*.nupkg \
             --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
