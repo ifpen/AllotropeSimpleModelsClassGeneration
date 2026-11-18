@@ -228,3 +228,39 @@ class TestBuildCommonsCmd:
         build_commons_cmd(merged, cfg, tmp_path)
         doc = json.loads((tmp_path / "openapi-generator-config.json").read_text())
         assert doc[cfg.package_key] == cfg.package_fn("")
+
+
+# ---------------------------------------------------------------------------
+# Module names and versions
+# ---------------------------------------------------------------------------
+
+
+class TestModuleVersions:
+    """Every language publishes a module at its OpenAPI ``info.version``."""
+
+    def test_module_placeholder(self):
+        assert interpolate("allotrope-models-{module}", "gc") == "allotrope-models-gc"
+        assert interpolate("allotrope-models-{module}", "") == "allotrope-models-commons"
+
+    @pytest.mark.parametrize("lang, key, expected", [
+        ("java", "artifactVersion", "2026.09.0"),
+        ("typescript-angular", "npmVersion", "2026.9.0"),
+        ("csharp", "packageVersion", "2026.9.0"),
+        ("python", "packageVersion", "2026.9.0"),
+    ])
+    def test_spec_version_in_every_language(self, lang: str, key: str, expected: str, tmp_path: Path):
+        from allotrope_gen.command import module_version, write_config
+        from allotrope_gen.config import LANGUAGES
+        assert module_version("gc") == "2026.09.0"
+        cfg = LANGUAGES[lang]
+        config = json.loads(write_config(cfg.extra_props, "gc", cfg, tmp_path).read_text(encoding="utf-8"))
+        assert config[key] == expected
+
+    def test_commons_version_and_artifact(self, tmp_path: Path):
+        from allotrope_gen.command import module_version, write_config
+        from allotrope_gen.config import COMMONS_VERSION, LANGUAGES
+        assert module_version("") == COMMONS_VERSION
+        cfg = LANGUAGES["java"]
+        config = json.loads(write_config(cfg.extra_props, "", cfg, tmp_path).read_text(encoding="utf-8"))
+        assert config["artifactId"] == "allotrope-models-commons"
+        assert config["artifactVersion"] == COMMONS_VERSION

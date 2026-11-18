@@ -60,7 +60,7 @@ class TestCsharpNamespace:
         assert csharp_namespace("gc") == "IFPEN.AllotropeConverters.AllotropeModels.Gc"
 
     def test_commons(self):
-        assert csharp_namespace("") == "IFPEN.AllotropeConverters.AllotropeModels"
+        assert csharp_namespace("") == "IFPEN.AllotropeConverters.AllotropeModels.Commons"
 
     def test_pascal_applied(self):
         # The spec key is Pascal-cased in the C# namespace
@@ -175,7 +175,7 @@ class TestSpecs:
         assert LANGUAGES["csharp"].import_pattern.format(
             class_name="QuantityValue",
             commons_package=LANGUAGES["csharp"].commons_package,
-        ) == "QuantityValue=IFPEN.AllotropeConverters.AllotropeModels.Model.QuantityValue"
+        ) == "QuantityValue=IFPEN.AllotropeConverters.AllotropeModels.Commons.Model.QuantityValue"
 
         technique_ref = root["properties"]["liquid chromatography aggregate document"]["$ref"]
         assert technique_ref == "#/components/schemas/liquidChromatographyAggregateDocument"
@@ -318,3 +318,9 @@ class TestSpecs:
         from pathlib import Path
         for key, path in SPECS.items():
             assert isinstance(path, Path), f"SPECS['{key}'] is not a Path"
+
+
+def test_npm_peer_dependency_range_is_strict_semver():
+    """npm rejects zero-padded versions such as ``2026.09.0`` as a range."""
+    from allotrope_gen.config import npm_semver
+    assert npm_semver("2026.09.0") == "2026.9.0"

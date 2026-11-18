@@ -19,7 +19,9 @@ import json
 import sys
 from pathlib import Path
 
-from .config import LanguageConfig
+import yaml
+
+from .config import LanguageConfig, npm_semver
 
 
 def to_pascal(s: str) -> str:
@@ -54,6 +56,8 @@ def interpolate(value: str, spec: str) -> str:
         PascalCase version (e.g. ``"Gc"``).
     ``{spec_upper}``
         Upper-case version (e.g. ``"GC"``).
+    ``{module}``
+        The spec key, or ``"commons"`` for the commons library (``spec=""``).
 
     Examples::
 
@@ -61,16 +65,35 @@ def interpolate(value: str, spec: str) -> str:
         'allotrope-models-gc'
         >>> interpolate("Models{spec_pascal}", "gc")
         'ModelsGc'
+        >>> interpolate("allotrope-models-{module}", "")
+        'allotrope-models-commons'
         >>> interpolate("no placeholders", "gc")
         'no placeholders'
     """
     from .config import to_pascal as _tp
     return (
         value
+        .replace("{module}", spec or "commons")
         .replace("{spec}", spec)
         .replace("{spec_pascal}", _tp(spec))
         .replace("{spec_upper}", spec.upper())
     )
+
+
+def module_version(spec: str) -> str:
+    """Return the version of a module: its spec ``info.version`` or the commons version.
+
+    Raises:
+        ValueError: If the spec has no ``info.version``.
+    """
+    from .config import COMMONS_VERSION, SPECS
+    if not spec:
+        return COMMONS_VERSION
+    with open(SPECS[spec], encoding="utf-8") as stream:
+        version = (yaml.safe_load(stream).get("info") or {}).get("version")
+    if not version:
+        raise ValueError(f"{SPECS[spec]} has no info.version")
+    return str(version)
 
 
 def write_config(
@@ -86,6 +109,18 @@ def write_config(
     (e.g. ``modelPackage``, ``packageName``) is injected here because
     ``--config`` takes precedence over other CLI flags when both are present.
 
+    Besides the :func:`interpolate` placeholders, values may use:
+
+    ``{package}``
+        The language package of the module (``cfg.package_fn(spec)``).
+    ``{version}``
+        The module version: the spec's OpenAPI ``info.version`` (e.g.
+        ``2026.09.0``), or :data:`~allotrope_gen.config.COMMONS_VERSION` for
+        the commons library.  Every language publishes this version.
+    ``{semver}``
+        The same version without zero padding (``2026.9.0``), the canonical
+        form of npm, NuGet and PyPI.
+
     Args:
         props:      Raw ``extra_props`` from :class:`~allotrope_gen.config.LanguageConfig`,
                     whose values may contain ``{spec}`` placeholders.
@@ -96,8 +131,16 @@ def write_config(
     Returns:
         Path to the written ``openapi-generator-config.json``.
     """
-    resolved = {k: interpolate(v, spec) for k, v in props.items()}
-    resolved[cfg.package_key] = cfg.package_fn(spec)
+    package = cfg.package_fn(spec)
+    version = module_version(spec)
+    resolved = {
+        k: interpolate(v, spec)
+        .replace("{package}", package)
+        .replace("{version}", version)
+        .replace("{semver}", npm_semver(version))
+        for k, v in props.items()
+    }
+    resolved[cfg.package_key] = package
     config_path = output_dir / "openapi-generator-config.json"
     config_path.write_text(
         json.dumps(resolved, indent=2, ensure_ascii=False),

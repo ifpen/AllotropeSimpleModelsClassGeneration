@@ -38,6 +38,13 @@ COMMON_YAML_FILES: list[Path] = [
     RESOURCES / "core.yaml",
 ]
 
+#: Version of the merged commons OpenAPI document (``info.version``).
+#: Java and npm commons packages take their version from it, and instrument
+#: packages in those languages declare a dependency on exactly this version.
+#: It follows the ``YYYY.MM.x`` convention of the newest ASM release the
+#: commons schemas are aligned with (``core.yaml``: REC/2026/09).
+COMMONS_VERSION: str = "2026.09.0"
+
 #: Instrument specs to generate.
 #: Key   = short identifier used on the CLI and in output paths (e.g. ``"gc"``).
 #: Value = path to the OpenAPI 3.1 YAML file.
@@ -89,17 +96,22 @@ def java_package(spec: str) -> str:
 
 
 def csharp_namespace(spec: str) -> str:
-    """Return the C# root namespace for *spec*.
+    """Return the C# root namespace (also NuGet package id and assembly) for *spec*.
+
+    The commons library is ``….AllotropeModels.Commons``: the bare
+    ``IFPEN.AllotropeConverters.AllotropeModels`` id was used on nuget.org by
+    the earlier all-in-one GC package (2025.6.x), which is deprecated in
+    favour of ``….AllotropeModels.Gc``.
 
     Examples::
 
         >>> csharp_namespace("gc")
         'IFPEN.AllotropeConverters.AllotropeModels.Gc'
         >>> csharp_namespace("")
-        'IFPEN.AllotropeConverters.AllotropeModels'
+        'IFPEN.AllotropeConverters.AllotropeModels.Commons'
     """
     base = "IFPEN.AllotropeConverters.AllotropeModels"
-    return f"{base}.{to_pascal(spec)}" if spec else base
+    return f"{base}.{to_pascal(spec)}" if spec else f"{base}.Commons"
 
 
 def python_package(spec: str) -> str:
@@ -130,6 +142,20 @@ def npm_package(spec: str) -> str:
     """
     suffix = f"-{spec}" if spec else "-commons"
     return f"@ifpen/allotrope-models{suffix}"
+
+
+def npm_semver(version: str) -> str:
+    """Return *version* as strict SemVer, as npm stores and resolves it.
+
+    npm normalizes ``2026.09.0`` to ``2026.9.0`` on publish but rejects the
+    zero-padded form as a dependency range, so ranges must use this form.
+
+    Examples::
+
+        >>> npm_semver("2026.09.0")
+        '2026.9.0'
+    """
+    return ".".join(str(int(part)) for part in version.split("."))
 
 
 # ---------------------------------------------------------------------------
@@ -197,8 +223,11 @@ LANGUAGES: dict[str, LanguageConfig] = {
         commons_package=java_package(""),
         import_pattern="{class_name}={commons_package}.{class_name}",
         extra_props={
+            "artifactVersion":          "{version}",
             "groupId":                  "fr.ifpen.allotropeconverters",
-            "artifactId":               "allotrope-models-{spec}",
+            "artifactId":               "allotrope-models-{module}",
+            "artifactDescription":      "Allotrope Simple Model (ASM) classes: {module}",
+            "artifactUrl":              "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
             "licenseName":              "CeCILL, version 2.1",
             "licenseUrl":               "https://opensource.org/license/cecill-2-1/",
             "developerName":            "Maxime Visconte",
@@ -224,6 +253,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         commons_package=npm_package(""),   # @ifpen/allotrope-models-commons
         import_pattern="{class_name}={commons_package}",
         extra_props={
+            "npmVersion":  "{semver}",
             "ngVersion":   "19.0.0",
             "licenseName": "CeCILL, version 2.1",
         },
@@ -239,6 +269,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         commons_package=csharp_namespace(""),
         import_pattern="{class_name}={commons_package}.Model.{class_name}",
         extra_props={
+            "packageVersion":     "{semver}",
             "netCoreProjectFile": "true",
             "targetFramework":    "netstandard2.0;net48",
             "licenseId":          "CECILL-2.1",
@@ -265,7 +296,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         commons_package=python_package(""),
         import_pattern="{class_name}={commons_package}.{class_name}",
         extra_props={
-            "packageVersion": "2.0.0",
+            "packageVersion": "{semver}",
             "packageUrl":     "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
             "packageAuthor":  "Maxime Visconte",
             "packageEmail":   "maxime.visconte@ifpen.fr",
