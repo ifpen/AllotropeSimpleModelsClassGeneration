@@ -10,9 +10,11 @@ import pytest
 
 from allotrope_gen.patch import (
     _MAVEN_NS,
+    PatchError,
     add_csharp_package_reference,
     add_java_dependency,
     add_npm_peer_dependency,
+    patch_nan_support,
     patch_python_package,
 )
 
@@ -123,3 +125,81 @@ class TestPatchPythonPackage:
         assert '"ifpen.allotrope_models==2.0.0"' in (python_output / "pyproject.toml").read_text(encoding="utf-8")
         assert (python_output / "requirements.txt").read_text(encoding="utf-8").splitlines().count(
             "ifpen.allotrope_models==2.0.0") == 1
+
+
+NAN = {"SecondsQuantityValue": ["value"]}
+
+
+class TestPatchNanSupport:
+    def test_python(self, tmp_path: Path):
+        models = tmp_path / "pkg" / "models"
+        models.mkdir(parents=True)
+        module = models / "seconds_quantity_value.py"
+        module.write_text(
+            "from __future__ import annotations\n"
+            "class SecondsQuantityValue(BaseModel):\n"
+            '    value: Union[StrictFloat, StrictInt] = Field(description="x")\n',
+            encoding="utf-8",
+        )
+        patch_nan_support("python", tmp_path, "pkg", NAN)
+        text = module.read_text(encoding="utf-8")
+        assert "    value: AsmDouble = Field(" in text
+        assert "from pkg.asm_double import AsmDouble\n" in text
+        assert (tmp_path / "pkg" / "asm_double.py").exists()
+
+    def test_python_asm_double_behaviour(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        pydantic = pytest.importorskip("pydantic")
+        (tmp_path / "pkg" / "models").mkdir(parents=True)
+        (tmp_path / "pkg" / "models" / "seconds_quantity_value.py").write_text(
+            "from __future__ import annotations\n"
+            "    value: Union[StrictFloat, StrictInt] = Field()\n", encoding="utf-8",
+        )
+        patch_nan_support("python", tmp_path, "pkg", NAN)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        from pkg.asm_double import AsmDouble  # type: ignore[import-not-found]
+
+        class Model(pydantic.BaseModel):
+            value: AsmDouble
+
+        nan = Model.model_validate({"value": "NaN"})
+        assert nan.value != nan.value  # NaN
+        assert nan.model_dump() == {"value": "NaN"}
+        assert Model.model_validate({"value": 1.5}).model_dump() == {"value": 1.5}
+        with pytest.raises(pydantic.ValidationError):
+            Model.model_validate({"value": "1.5"})
+
+    def test_csharp(self, tmp_path: Path):
+        model = tmp_path / "src" / "Lib" / "Model"
+        model.mkdir(parents=True)
+        source = model / "SecondsQuantityValue.cs"
+        source.write_text(
+            '                        case "value":\n'
+            "                            value = new Option<double?>(utf8JsonReader.TokenType == JsonTokenType.Null"
+            " ? (double?)null : utf8JsonReader.GetDouble());\n"
+            '            writer.WriteNumber("value", secondsQuantityValue.Value);\n',
+            encoding="utf-8",
+        )
+        patch_nan_support("csharp", tmp_path, "Lib.Ns", NAN)
+        text = source.read_text(encoding="utf-8")
+        assert "AsmDouble.Read(ref utf8JsonReader)" in text
+        assert 'AsmDouble.Write(writer, "value", secondsQuantityValue.Value);' in text
+        helper = (model / "AsmDouble.cs").read_text(encoding="utf-8")
+        assert "namespace Lib.Ns.Model" in helper
+
+    def test_typescript(self, tmp_path: Path):
+        (tmp_path / "model").mkdir()
+        source = tmp_path / "model" / "secondsQuantityValue.ts"
+        source.write_text("export interface SecondsQuantityValue {\n    value: number;\n}\n", encoding="utf-8")
+        patch_nan_support("typescript-angular", tmp_path, "@x/y", NAN)
+        patch_nan_support("typescript-angular", tmp_path, "@x/y", NAN)  # idempotent
+        assert "    value: number | 'NaN';\n" in source.read_text(encoding="utf-8")
+
+    def test_java_needs_no_patch(self, tmp_path: Path):
+        patch_nan_support("java", tmp_path, "fr.x", NAN)
+        assert list(tmp_path.iterdir()) == []
+
+    def test_unexpected_generated_code_fails_loudly(self, tmp_path: Path):
+        (tmp_path / "model").mkdir()
+        (tmp_path / "model" / "secondsQuantityValue.ts").write_text("value: string;\n", encoding="utf-8")
+        with pytest.raises(PatchError):
+            patch_nan_support("typescript-angular", tmp_path, "@x/y", NAN)

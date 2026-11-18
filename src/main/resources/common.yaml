@@ -31,6 +31,9 @@ components:
             generated clients read and write it as a floating-point NaN.
           type: number
           format: double
+          # Post-generation patches (allotrope_gen.patch) make this field accept
+          # and emit the ASM "NaN" string in every language.
+          x-asm-nan: true
         unit:
           type: string
       required:

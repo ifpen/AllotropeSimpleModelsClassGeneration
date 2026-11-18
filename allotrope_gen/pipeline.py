@@ -27,12 +27,17 @@ from .patch import (
     add_csharp_package_reference,
     add_java_dependency,
     add_npm_peer_dependency,
+    PatchError,
     patch_java_pom,
+    patch_nan_support,
     patch_python_package,
 )
 from .schema import (
     bundle_spec,
+    load_yaml,
+    merged_commons_schemas,
     merged_commons_yaml,
+    nan_capable_properties,
 )
 
 #: Directory for self-contained instrument specs handed to the generator.
@@ -133,6 +138,9 @@ def generate_commons(
         if run(cmd, dry_run):
             if lang == "java":
                 patch_java_pom(out / "pom.xml", dry_run)
+            all_ok &= _patch_nan(
+                cfg, out, "", nan_capable_properties(merged_commons_schemas()), dry_run,
+            )
         else:
             all_ok = False
 
@@ -181,6 +189,14 @@ def generate_specs(
 
         bundled_path, common_schemas = bundle_spec(spec_path, BUNDLED)
         print(f"\n[{spec}] common schemas reachable: {sorted(common_schemas)}")
+        # Mapped commons classes are patched once, in the commons output.
+        nan_properties = {
+            name: props
+            for name, props in nan_capable_properties(
+                load_yaml(bundled_path)["components"]["schemas"]
+            ).items()
+            if name not in common_schemas
+        }
 
         for lang in langs:
             cfg = LANGUAGES[lang]
@@ -195,6 +211,7 @@ def generate_specs(
                     patch_java_pom(out / "pom.xml", dry_run)
                 if common_schemas:
                     declare_commons_dependency(spec, lang, out, common_schemas, dry_run)
+                all_ok &= _patch_nan(cfg, out, spec, nan_properties, dry_run)
             else:
                 all_ok = False
 
@@ -240,3 +257,25 @@ def declare_commons_dependency(
             common_schemas,
             dry_run,
         )
+
+
+def _patch_nan(
+    cfg: LanguageConfig,
+    output_dir: Path,
+    spec: str,
+    nan_properties: dict[str, list[str]],
+    dry_run: bool,
+) -> bool:
+    """Apply :func:`~allotrope_gen.patch.patch_nan_support`; report failures.
+
+    Returns:
+        ``False`` (after printing the error) if the generated code no longer
+        matches the patch, so the run fails instead of silently losing NaN
+        support.
+    """
+    try:
+        patch_nan_support(cfg.generator, output_dir, cfg.package_fn(spec), nan_properties, dry_run)
+    except PatchError as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return False
+    return True

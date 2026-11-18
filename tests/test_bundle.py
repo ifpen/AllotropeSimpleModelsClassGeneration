@@ -13,6 +13,7 @@ from allotrope_gen.schema import (
     generates_model,
     load_yaml,
     merged_commons_schemas,
+    nan_capable_properties,
 )
 
 
@@ -132,3 +133,15 @@ class TestGeneratesModel:
     ])
     def test_aliases(self, schema: dict):
         assert not generates_model(schema)
+
+
+class TestNanCapableProperties:
+    def test_direct_and_inherited(self, commons: list[Path]):
+        result = nan_capable_properties(merged_commons_schemas(commons))
+        assert result == {"Value": ["value"], "Seconds": ["value"]}
+
+    def test_real_commons_quantity_values(self):
+        result = nan_capable_properties(merged_commons_schemas())
+        assert result["QuantityValue"] == ["value"]
+        assert result["SecondsQuantityValue"] == ["value"]
+        assert all(name.endswith("QuantityValue") for name in result)

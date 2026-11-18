@@ -332,3 +332,47 @@ def _hollow_nested_inline_objects(schema: dict) -> None:
     hollowed = visit(schema, True)
     schema.clear()
     schema.update(hollowed)
+
+
+#: Vendor extension marking a ``number`` property whose ASM value may be the
+#: JSON string ``"NaN"``.
+NAN_EXTENSION = "x-asm-nan"
+
+
+def nan_capable_properties(schemas: dict[str, dict]) -> dict[str, list[str]]:
+    """Return ``{schema name: [property names]}`` for NaN-capable numbers.
+
+    A property is NaN-capable when it carries ``x-asm-nan: true``.  Schemas
+    that compose a NaN-capable schema through ``allOf`` (the unit-specific
+    ``*QuantityValue`` wrappers) inherit its NaN-capable properties, because
+    generators flatten ``allOf`` into one class with the same fields.
+
+    Args:
+        schemas: ``components/schemas`` mapping with local ``$ref``s.
+
+    Returns:
+        NaN-capable property names per schema; schemas without any are omitted.
+    """
+    def own(schema: dict) -> list[str]:
+        return [
+            name for name, prop in (schema.get("properties") or {}).items()
+            if isinstance(prop, dict) and prop.get(NAN_EXTENSION) is True
+        ]
+
+    def collect(name: str, seen: frozenset[str]) -> list[str]:
+        schema = schemas.get(name) or {}
+        found = own(schema)
+        for part in schema.get("allOf") or []:
+            if not isinstance(part, dict):
+                continue
+            ref = part.get("$ref", "")
+            if ref.startswith(_LOCAL_SCHEMA_PREFIX):
+                target = ref[len(_LOCAL_SCHEMA_PREFIX):]
+                if target not in seen:
+                    found += collect(target, seen | {target})
+            else:
+                found += own(part)
+        return sorted(set(found))
+
+    result = {name: collect(name, frozenset({name})) for name in schemas}
+    return {name: props for name, props in result.items() if props}
