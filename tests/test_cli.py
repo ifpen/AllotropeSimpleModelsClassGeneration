@@ -155,8 +155,29 @@ class TestCli:
     def test_main_success(self, mock_specs: MagicMock, mock_commons: MagicMock, mock_check: MagicMock):
         rc = main(["--specs", "gc", "--langs", "java", "--dry-run"])
         assert rc == 0
-        mock_commons.assert_called_once_with(["java"], dry_run=True, no_clean=False)
-        mock_specs.assert_called_once_with(["gc"], ["java"], dry_run=True, no_clean=False)
+        mock_commons.assert_called_once_with(["java"], dry_run=True, no_clean=False, prerelease=None)
+        mock_specs.assert_called_once_with(
+            ["gc"], ["java"], dry_run=True, no_clean=False, prerelease=None,
+        )
+
+    @patch("allotrope_gen.cli.check_prerequisites", return_value=True)
+    @patch("allotrope_gen.cli.generate_commons", return_value=True)
+    @patch("allotrope_gen.cli.generate_specs", return_value=True)
+    def test_prerelease_is_passed_through(
+        self, mock_specs: MagicMock, mock_commons: MagicMock, mock_check: MagicMock,
+    ):
+        assert main(["--prerelease", "beta.1", "--dry-run"]) == 0
+        assert mock_commons.call_args.kwargs["prerelease"] == "beta.1"
+        assert mock_specs.call_args.kwargs["prerelease"] == "beta.1"
+
+    @pytest.mark.parametrize("label", ["beta", "beta.0", "1", "preview.1", "beta.1.2"])
+    @patch("allotrope_gen.cli.generate_commons")
+    def test_invalid_prerelease_is_rejected(
+        self, mock_commons: MagicMock, label: str, capsys: pytest.CaptureFixture[str],
+    ):
+        assert main(["--prerelease", label, "--dry-run"]) == 1
+        assert "Invalid pre-release" in capsys.readouterr().err
+        mock_commons.assert_not_called()
 
     @patch("allotrope_gen.cli.check_prerequisites", return_value=True)
     @patch("allotrope_gen.cli.generate_commons", return_value=False)

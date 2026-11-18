@@ -21,7 +21,7 @@ from pathlib import Path
 
 import yaml
 
-from .config import LanguageConfig, npm_semver
+from .config import LanguageConfig, version_placeholders
 
 
 def to_pascal(s: str) -> str:
@@ -96,11 +96,25 @@ def module_version(spec: str) -> str:
     return str(version)
 
 
+def resolve_version(template: str, spec: str, prerelease: str | None = None) -> str:
+    """Replace the version placeholders of *template* for a module.
+
+    Args:
+        template:   Text containing ``{version}``, ``{semver}`` or ``{pep440}``.
+        spec:       Spec identifier (``""`` for the commons library).
+        prerelease: Optional pre-release label (``beta.1``).
+    """
+    for placeholder, value in version_placeholders(module_version(spec), prerelease).items():
+        template = template.replace(placeholder, value)
+    return template
+
+
 def write_config(
     props: dict[str, str],
     spec: str,
     cfg: LanguageConfig,
     output_dir: Path,
+    prerelease: str | None = None,
 ) -> Path:
     """Write the generator config JSON to *output_dir* and return its path.
 
@@ -113,13 +127,11 @@ def write_config(
 
     ``{package}``
         The language package of the module (``cfg.package_fn(spec)``).
-    ``{version}``
-        The module version: the spec's OpenAPI ``info.version`` (e.g.
-        ``2026.09.0``), or :data:`~allotrope_gen.config.COMMONS_VERSION` for
-        the commons library.  Every language publishes this version.
-    ``{semver}``
-        The same version without zero padding (``2026.9.0``), the canonical
-        form of npm, NuGet and PyPI.
+    ``{version}`` / ``{semver}`` / ``{pep440}``
+        The module version: the spec's OpenAPI ``info.version`` (or
+        :data:`~allotrope_gen.config.COMMONS_VERSION` for commons) in the
+        Maven, npm/NuGet and PyPI spellings, including the optional
+        *prerelease* label (see :func:`~allotrope_gen.config.version_placeholders`).
 
     Args:
         props:      Raw ``extra_props`` from :class:`~allotrope_gen.config.LanguageConfig`,
@@ -127,17 +139,14 @@ def write_config(
         spec:       Current spec identifier (``""`` for the commons library).
         cfg:        Language configuration.
         output_dir: Directory where the config file will be written.
+        prerelease: Optional pre-release label (``beta.1``).
 
     Returns:
         Path to the written ``openapi-generator-config.json``.
     """
     package = cfg.package_fn(spec)
-    version = module_version(spec)
     resolved = {
-        k: interpolate(v, spec)
-        .replace("{package}", package)
-        .replace("{version}", version)
-        .replace("{semver}", npm_semver(version))
+        k: resolve_version(interpolate(v, spec).replace("{package}", package), spec, prerelease)
         for k, v in props.items()
     }
     resolved[cfg.package_key] = package
@@ -200,6 +209,7 @@ def build_cmd(
     cfg: LanguageConfig,
     common_schemas: set[str],
     output_dir: Path,
+    prerelease: str | None = None,
 ) -> list[str]:
     """Build the ``openapi-generator-cli generate`` command for an instrument spec.
 
@@ -210,11 +220,12 @@ def build_cmd(
         common_schemas: Commons schemas reachable from this spec; used to build
                         ``--import-mappings`` and ``--schema-mappings``.
         output_dir:     Where the generator should write its output.
+        prerelease:     Optional pre-release label (``beta.1``).
 
     Returns:
         Argument list suitable for :func:`subprocess.run`.
     """
-    config_path = write_config(cfg.extra_props, spec, cfg, output_dir)
+    config_path = write_config(cfg.extra_props, spec, cfg, output_dir, prerelease)
     import_mappings = build_import_mappings(common_schemas, cfg)
 
     cmd = [
@@ -237,6 +248,7 @@ def build_commons_cmd(
     merged_path: Path,
     cfg: LanguageConfig,
     output_dir: Path,
+    prerelease: str | None = None,
 ) -> list[str]:
     """Build the ``openapi-generator-cli generate`` command for the commons library.
 
@@ -248,11 +260,12 @@ def build_commons_cmd(
                      :func:`~allotrope_gen.schema.merged_commons_yaml`.
         cfg:         Language configuration.
         output_dir:  Where the generator should write its output.
+        prerelease:  Optional pre-release label (``beta.1``).
 
     Returns:
         Argument list suitable for :func:`subprocess.run`.
     """
-    config_path = write_config(cfg.extra_props, "", cfg, output_dir)
+    config_path = write_config(cfg.extra_props, "", cfg, output_dir, prerelease)
     return [
         generator_cli(), "generate",
         "--input-spec",     str(merged_path),

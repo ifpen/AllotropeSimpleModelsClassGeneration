@@ -16,6 +16,7 @@ contract for every supported language.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -158,6 +159,43 @@ def npm_semver(version: str) -> str:
     return ".".join(str(int(part)) for part in version.split("."))
 
 
+#: Accepted pre-release labels (``--prerelease``): ``alpha.N``, ``beta.N``, ``rc.N``.
+PRERELEASE_PATTERN = re.compile(r"(alpha|beta|rc)\.([1-9]\d*)")
+_PEP440_PRERELEASE = {"alpha": "a", "beta": "b", "rc": "rc"}
+
+
+def version_placeholders(version: str, prerelease: str | None = None) -> dict[str, str]:
+    """Return the version forms each registry expects, keyed by placeholder.
+
+    ``{version}``
+        Maven form: the OpenAPI version as written (``2026.09.0``), with a
+        ``-<label>`` pre-release suffix (``2026.09.0-beta.1``).
+    ``{semver}``
+        npm / NuGet SemVer: no zero padding (``2026.9.0-beta.1``).
+    ``{pep440}``
+        PyPI: PEP 440 pre-release spelling (``2026.9.0b1``).
+
+    Examples::
+
+        >>> version_placeholders("2026.09.0", "beta.1")["{pep440}"]
+        '2026.9.0b1'
+
+    Raises:
+        ValueError: If *prerelease* is not ``alpha.N``, ``beta.N`` or ``rc.N``.
+    """
+    semver = npm_semver(version)
+    forms = {"{version}": version, "{semver}": semver, "{pep440}": semver}
+    if prerelease:
+        match = PRERELEASE_PATTERN.fullmatch(prerelease)
+        if match is None:
+            raise ValueError(f"invalid pre-release {prerelease!r}: use alpha.N, beta.N or rc.N")
+        kind, number = match.groups()
+        forms["{version}"] += f"-{prerelease}"
+        forms["{semver}"] += f"-{prerelease}"
+        forms["{pep440}"] += f"{_PEP440_PRERELEASE[kind]}{number}"
+    return forms
+
+
 # ---------------------------------------------------------------------------
 # Language configuration dataclass
 # ---------------------------------------------------------------------------
@@ -187,10 +225,11 @@ class LanguageConfig:
         import_pattern:   ``str.format``-style template for a single
                           ``--import-mappings`` entry.  Receives
                           ``{class_name}`` and ``{commons_package}``.
-        commons_version:  Version the generated commons package receives in
-                          this language (``{version}``/``{semver}`` of the
-                          commons module); instrument packages declare a
-                          dependency on exactly this version.
+        commons_version:  Version template (``{version}``, ``{semver}`` or
+                          ``{pep440}``, see :func:`version_placeholders`) of
+                          the commons package in this language.  Resolved
+                          like the published version, so instrument packages
+                          depend on exactly the commons version of the run.
         schema_pattern:   Template for a single ``--schema-mappings`` entry.
                           Schema mappings stop the generator from emitting
                           the commons classes again.  ``None`` reuses
@@ -232,7 +271,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         package_fn=java_package,
         commons_package=java_package(""),
         import_pattern="{class_name}={commons_package}.{class_name}",
-        commons_version=COMMONS_VERSION,
+        commons_version="{version}",
         extra_props={
             "artifactVersion":          "{version}",
             "groupId":                  "fr.ifpen.allotropeconverters",
@@ -268,7 +307,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         commons_package=npm_package(""),   # @ifpen/allotrope-models-commons
         import_pattern="{class_name}={commons_package}",
         # npm rejects zero-padded versions in ranges: use the strict form.
-        commons_version=npm_semver(COMMONS_VERSION),
+        commons_version="{semver}",
         extra_props={
             "npmVersion":  "{semver}",
             "ngVersion":   "19.0.0",
@@ -287,7 +326,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         package_fn=csharp_namespace,
         commons_package=csharp_namespace(""),
         import_pattern="{class_name}={commons_package}.Model.{class_name}",
-        commons_version=npm_semver(COMMONS_VERSION),
+        commons_version="{semver}",
         extra_props={
             "packageVersion":     "{semver}",
             "netCoreProjectFile": "true",
@@ -316,9 +355,9 @@ LANGUAGES: dict[str, LanguageConfig] = {
         # ``from ifpen.allotrope_models import <Class>`` where they are used.
         commons_package=python_package(""),
         import_pattern="{class_name}={class_name}",
-        commons_version=npm_semver(COMMONS_VERSION),
+        commons_version="{pep440}",
         extra_props={
-            "packageVersion": "{semver}",
+            "packageVersion": "{pep440}",
             "packageUrl":     "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
             "packageAuthor":  "Maxime Visconte",
             "packageEmail":   "maxime.visconte@ifpen.fr",

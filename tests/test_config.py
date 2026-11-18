@@ -322,8 +322,40 @@ class TestSpecs:
 
 def test_npm_peer_dependency_range_is_strict_semver():
     """npm rejects zero-padded versions such as ``2026.09.0`` as a range."""
-    import re
     from allotrope_gen.config import LANGUAGES, npm_semver
     assert npm_semver("2026.09.0") == "2026.9.0"
-    version = LANGUAGES["typescript-angular"].commons_version
-    assert re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version)
+    assert LANGUAGES["typescript-angular"].commons_version == "{semver}"
+
+
+class TestVersionPlaceholders:
+    def test_release(self):
+        from allotrope_gen.config import version_placeholders
+        assert version_placeholders("2026.09.0") == {
+            "{version}": "2026.09.0", "{semver}": "2026.9.0", "{pep440}": "2026.9.0",
+        }
+
+    @pytest.mark.parametrize("label, maven, semver, pep440", [
+        ("alpha.1", "2026.09.0-alpha.1", "2026.9.0-alpha.1", "2026.9.0a1"),
+        ("beta.2", "2026.09.0-beta.2", "2026.9.0-beta.2", "2026.9.0b2"),
+        ("rc.10", "2026.09.0-rc.10", "2026.9.0-rc.10", "2026.9.0rc10"),
+    ])
+    def test_prerelease_forms(self, label: str, maven: str, semver: str, pep440: str):
+        from allotrope_gen.config import version_placeholders
+        assert version_placeholders("2026.09.0", label) == {
+            "{version}": maven, "{semver}": semver, "{pep440}": pep440,
+        }
+
+    @pytest.mark.parametrize("label", ["beta", "beta.0", "preview.1", "BETA.1", "beta.1.1"])
+    def test_invalid_label(self, label: str):
+        from allotrope_gen.config import version_placeholders
+        with pytest.raises(ValueError):
+            version_placeholders("2026.09.0", label)
+
+    def test_pep440_form_is_canonical(self):
+        """PyPI normalizes versions; the generated form must already be canonical."""
+        packaging_version = pytest.importorskip("packaging.version")
+        from allotrope_gen.config import version_placeholders
+        for label in ("alpha.1", "beta.1", "rc.1"):
+            pep440 = version_placeholders("2026.09.0", label)["{pep440}"]
+            parsed = packaging_version.Version(pep440)
+            assert str(parsed) == pep440 and parsed.is_prerelease

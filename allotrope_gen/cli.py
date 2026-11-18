@@ -15,6 +15,7 @@ Usage::
     python generate.py --no-verify-builds     # skip builds after generation
     python generate.py --list-specs          # print registered spec keys
     python generate.py --list-langs          # print supported language keys
+    python generate.py --prerelease beta.1   # publish versions as 2026.09.0-beta.1
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ import sys
 from pathlib import Path
 
 from .command import generator_cli
-from .config import LANGUAGES, ROOT, SPECS
+from .config import LANGUAGES, PRERELEASE_PATTERN, ROOT, SPECS
 
 
 def generate_commons(*args, **kwargs) -> bool:
@@ -77,6 +78,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip building generated clients (verification is enabled by default).",
     )
     parser.add_argument(
+        "--prerelease", metavar="LABEL",
+        help=(
+            "Publish a pre-release: alpha.N, beta.N or rc.N (e.g. beta.1 gives "
+            "2026.09.0-beta.1 on Maven, 2026.9.0-beta.1 on npm/NuGet, "
+            "2026.9.0b1 on PyPI)."
+        ),
+    )
+    parser.add_argument(
         "--list-specs", action="store_true",
         help="Print all registered spec keys and exit.",
     )
@@ -99,6 +108,12 @@ def _validate_args(args: argparse.Namespace) -> int:
     if unknown_langs:
         print(f"[ERROR] Unknown language(s): {sorted(unknown_langs)}", file=sys.stderr)
         print(f"        Valid languages: {list(LANGUAGES)}", file=sys.stderr)
+        rc = 1
+    if args.prerelease is not None and not PRERELEASE_PATTERN.fullmatch(args.prerelease):
+        print(
+            f"[ERROR] Invalid pre-release {args.prerelease!r}: use alpha.N, beta.N or rc.N",
+            file=sys.stderr,
+        )
         rc = 1
     return rc
 
@@ -328,13 +343,16 @@ def main(argv: list[str] | None = None) -> int:
     if not check_prerequisites(dry_run=args.dry_run):
         return 1
 
-    ok = generate_commons(args.langs, dry_run=args.dry_run, no_clean=args.no_clean)
+    ok = generate_commons(
+        args.langs, dry_run=args.dry_run, no_clean=args.no_clean, prerelease=args.prerelease,
+    )
 
     if not args.commons_only:
         ok = generate_specs(
             args.specs, args.langs,
             dry_run=args.dry_run,
             no_clean=args.no_clean,
+            prerelease=args.prerelease,
         ) and ok
 
     if ok and not args.dry_run and not args.no_verify_builds:

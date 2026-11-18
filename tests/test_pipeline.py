@@ -181,3 +181,17 @@ class TestDeclareCommonsDependency:
             declare_commons_dependency("gc", lang, tmp_path, {"Foo"}, dry_run=False)
         args = mock.call_args.args
         assert all(value in args for value in expected)
+
+
+class TestCommonsDependencyPrerelease:
+    @pytest.mark.parametrize("lang, target, expected", [
+        ("java", "add_java_dependency", "2026.09.0-beta.1"),
+        ("csharp", "add_csharp_package_reference", "2026.9.0-beta.1"),
+        ("typescript-angular", "add_npm_peer_dependency", "2026.9.0-beta.1"),
+        ("python", "patch_python_package", "2026.9.0b1"),
+    ])
+    def test_dependency_uses_commons_prerelease(self, lang: str, target: str, expected: str, tmp_path: Path):
+        from allotrope_gen.pipeline import declare_commons_dependency
+        with patch(f"allotrope_gen.pipeline.{target}") as mock:
+            declare_commons_dependency("gc", lang, tmp_path, {"Foo"}, dry_run=False, prerelease="beta.1")
+        assert expected in mock.call_args.args

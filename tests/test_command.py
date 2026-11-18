@@ -292,12 +292,30 @@ class TestModuleVersions:
         config = json.loads(write_config(cfg.extra_props, "gc", cfg, tmp_path).read_text(encoding="utf-8"))
         assert config[key] == expected
 
-    def test_commons_version(self, tmp_path: Path):
-        from allotrope_gen.command import module_version, write_config
-        from allotrope_gen.config import COMMONS_VERSION, LANGUAGES, npm_semver
+    @pytest.mark.parametrize("prerelease", [None, "beta.1", "rc.2"])
+    def test_commons_dependency_matches_published_commons(self, prerelease, tmp_path: Path):
+        from allotrope_gen.command import module_version, resolve_version, write_config
+        from allotrope_gen.config import COMMONS_VERSION, LANGUAGES
         assert module_version("") == COMMONS_VERSION
         for cfg in LANGUAGES.values():
-            config = json.loads(write_config(cfg.extra_props, "", cfg, tmp_path).read_text(encoding="utf-8"))
+            config = json.loads(
+                write_config(cfg.extra_props, "", cfg, tmp_path, prerelease).read_text(encoding="utf-8")
+            )
             published = config.get("artifactVersion") or config.get("npmVersion") or config.get("packageVersion")
             # Spec packages depend on exactly the version commons is published at.
-            assert npm_semver(published) == npm_semver(cfg.commons_version)
+            assert resolve_version(cfg.commons_version, "", prerelease) == published
+
+    @pytest.mark.parametrize("lang, key, expected", [
+        ("java", "artifactVersion", "2026.09.0-beta.1"),
+        ("typescript-angular", "npmVersion", "2026.9.0-beta.1"),
+        ("csharp", "packageVersion", "2026.9.0-beta.1"),
+        ("python", "packageVersion", "2026.9.0b1"),
+    ])
+    def test_prerelease_in_every_language(self, lang: str, key: str, expected: str, tmp_path: Path):
+        from allotrope_gen.command import write_config
+        from allotrope_gen.config import LANGUAGES
+        cfg = LANGUAGES[lang]
+        config = json.loads(
+            write_config(cfg.extra_props, "gc", cfg, tmp_path, "beta.1").read_text(encoding="utf-8")
+        )
+        assert config[key] == expected

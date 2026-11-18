@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .command import build_cmd, build_commons_cmd, interpolate
+from .command import build_cmd, build_commons_cmd, interpolate, resolve_version
 from .config import COMMON_YAML_FILES, LANGUAGES, OUTPUT, SPECS, LanguageConfig
 from .ontology import enrich_spec_descriptions
 from .patch import (
@@ -109,6 +109,7 @@ def generate_commons(
     *,
     dry_run: bool,
     no_clean: bool,
+    prerelease: str | None = None,
 ) -> bool:
     """Generate the commons library for every requested language.
 
@@ -137,7 +138,7 @@ def generate_commons(
             f"  (merged: {', '.join(p.name for p in COMMON_YAML_FILES)})"
         )
 
-        cmd = build_commons_cmd(merged_path, cfg, out)
+        cmd = build_commons_cmd(merged_path, cfg, out, prerelease)
         if run(cmd, dry_run):
             if lang == "java":
                 patch_java_pom(out / "pom.xml", dry_run)
@@ -168,6 +169,7 @@ def generate_specs(
     *,
     dry_run: bool,
     no_clean: bool,
+    prerelease: str | None = None,
 ) -> bool:
     """Generate instrument-spec libraries for every requested (spec, language) pair.
 
@@ -215,13 +217,15 @@ def generate_specs(
             out.mkdir(parents=True, exist_ok=True)
             print(f"\n[{spec}] -> {lang}")
 
-            cmd = build_cmd(spec, bundled_path, cfg, common_schemas, out)
+            cmd = build_cmd(spec, bundled_path, cfg, common_schemas, out, prerelease)
             if run(cmd, dry_run):
                 if lang == "java":
                     patch_java_pom(out / "pom.xml", dry_run)
                 if common_schemas:
                     try:
-                        declare_commons_dependency(spec, lang, out, common_schemas, dry_run)
+                        declare_commons_dependency(
+                            spec, lang, out, common_schemas, dry_run, prerelease,
+                        )
                     except PatchError as exc:
                         print(f"[ERROR] {exc}", file=sys.stderr)
                         all_ok = False
@@ -244,8 +248,12 @@ def declare_commons_dependency(
     output_dir: Path,
     common_schemas: set[str],
     dry_run: bool,
+    prerelease: str | None = None,
 ) -> None:
     """Declare the commons package as a dependency of a generated spec package.
+
+    The dependency version is the commons version of the same run, including
+    the pre-release label, resolved from ``cfg.commons_version``.
 
     Args:
         spec:           Spec identifier (e.g. ``"gc"``).
@@ -253,28 +261,30 @@ def declare_commons_dependency(
         output_dir:     Generated output directory for the pair.
         common_schemas: Commons schemas the spec package references.
         dry_run:        When ``True``, report but do not modify any file.
+        prerelease:     Optional pre-release label (``beta.1``).
     """
     cfg = LANGUAGES[lang]
     commons_name = cfg.package_fn("")
+    version = resolve_version(cfg.commons_version, "", prerelease)
     if cfg.generator == "java":
         add_java_dependency(
             output_dir / "pom.xml",
             cfg.extra_props["groupId"],
             interpolate(cfg.extra_props["artifactId"], ""),
-            cfg.commons_version,
+            version,
             dry_run,
         )
     elif cfg.generator == "csharp":
-        add_csharp_package_reference(output_dir, commons_name, cfg.commons_version, dry_run)
+        add_csharp_package_reference(output_dir, commons_name, version, dry_run)
         register_csharp_commons_converters(output_dir, commons_name, dry_run)
     elif cfg.generator == "typescript-angular":
-        add_npm_peer_dependency(output_dir / "package.json", commons_name, cfg.commons_version, dry_run)
+        add_npm_peer_dependency(output_dir / "package.json", commons_name, version, dry_run)
     elif cfg.generator == "python":
         patch_python_package(
             output_dir,
             cfg.package_fn(spec),
             commons_name,
-            cfg.commons_version,
+            version,
             common_schemas,
             dry_run,
         )
