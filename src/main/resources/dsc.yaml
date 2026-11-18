@@ -160,7 +160,6 @@ components:
           description: "A textual entity that denotes a particular in reality. [IAO]"
           type: string
       required:
-        - '@index'
         - device type
 
     differentialScanningCalorimetryDocument:
@@ -185,7 +184,6 @@ components:
           description: "Submitter is measurement metadata about the name or identifier of a person that has the role of a submitter in the measurement. [Allotrope]"
           type: string
       required:
-        - '@index'
         - measurement aggregate document
 
     measurementAggregateDocument:
@@ -350,7 +348,6 @@ components:
         profile setting aggregate document:
           $ref: '#/components/schemas/ProfileSettingAggregateDocument'
       required:
-        - '@index'
         - device type
 
     ProfileSettingAggregateDocument:
@@ -398,7 +395,6 @@ components:
         start time setting:
           $ref: ./common.yaml#/components/schemas/QuantityValue
       required:
-        - '@index'
         - profile setting feature
         - initial setting
         - final setting
@@ -482,8 +478,6 @@ components:
           $ref: ./core.yaml#/components/schemas/CoreMatchResultAggregateDocument
         peak list:
           $ref: '#/components/schemas/dscPeakList'
-      required:
-        - '@index'
 
     dscPeakList:
       type: object
@@ -523,8 +517,6 @@ components:
           type: string
         transition enthalpy:
           $ref: ./common.yaml#/components/schemas/JoulePerGramQuantityValue
-      required:
-        - '@index'
 
     DscDataCube:
       type: object

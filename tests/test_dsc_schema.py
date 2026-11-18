@@ -65,9 +65,12 @@ def test_dsc_model_covers_current_nested_measurement_hierarchy() -> None:
     assert "device system document" in aggregate["properties"]
 
     technique = schemas["differentialScanningCalorimetryDocument"]
-    assert technique["required"] == [
-        "@index",
-        "measurement aggregate document",
+    # The official REC/2026/09 schema never requires ``@index`` and the
+    # official example omits it.
+    assert technique["required"] == ["measurement aggregate document"]
+    assert not [
+        name for name, schema in schemas.items()
+        if "@index" in schema.get("required", [])
     ]
     measurements = schemas["measurementAggregateDocument"]
     assert measurements["required"] == ["measurement document"]
@@ -86,16 +89,9 @@ def test_dsc_model_covers_current_nested_measurement_hierarchy() -> None:
         "container state description",
         "sample identifier",
     ]
-    assert schemas["DscDeviceDocument"]["required"] == [
-        "@index",
-        "device type",
-    ]
-    assert schemas["DeviceControlDocument"]["required"] == [
-        "@index",
-        "device type",
-    ]
+    assert schemas["DscDeviceDocument"]["required"] == ["device type"]
+    assert schemas["DeviceControlDocument"]["required"] == ["device type"]
     assert schemas["ProfileSettingDocument"]["required"] == [
-        "@index",
         "profile setting feature",
         "initial setting",
         "final setting",
@@ -105,14 +101,11 @@ def test_dsc_model_covers_current_nested_measurement_hierarchy() -> None:
         "minimum": 1,
         "maximum": 2147483647,
     }
-    assert "@index" in schemas["DscProcessedDataDocument"]["required"]
-    assert "@index" in schemas["DscProcessedDataDocument"]["required"]
     assert schemas["dscPeak"]["properties"]["@index"] == {
         "type": "integer",
         "minimum": 1,
         "maximum": 2147483647,
     }
-    assert "@index" in schemas["dscPeak"]["required"]
     assert schemas["DeviceControlAggregateDocument"]["required"] == [
         "device control document"
     ]
