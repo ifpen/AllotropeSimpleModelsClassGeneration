@@ -320,7 +320,11 @@ The workflow `generate.yml` runs on:
   the `allotrope_gen/` package, `pyproject.toml`, `uv.lock`, `.mise.toml`, `openapitools.json`,
   or the workflow itself changes.
 - **Manual trigger** (`workflow_dispatch`) — accepts optional `specs`, `langs`, `dry_run`,
-  and `verify_builds` inputs.
+  `verify_builds`, and `prerelease` inputs. `prerelease` (`alpha.N`, `beta.N`, `rc.N`)
+  publishes every package of the run as a pre-release (`generate.py --prerelease`):
+  Maven `2026.09.0-beta.1`, npm/NuGet `2026.9.0-beta.1` (npm dist-tag `beta`), PyPI
+  `2026.9.0b1`. Use it from a feature branch to test packages before a release; never
+  reuse a label, registries reject republished versions.
 
 The `generate` job installs the toolchain pinned in `.mise.toml` with `jdx/mise-action`
 (the same versions as the Docker Sandbox), runs `uv sync --locked --all-extras`, then

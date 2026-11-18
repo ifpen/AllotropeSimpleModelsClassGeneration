@@ -83,6 +83,26 @@ published as `2026.9.0` on npm, NuGet and PyPI). The earlier GC-only NuGet packa
 `IFPEN.AllotropeConverters.AllotropeModels` (2025.6.x) is superseded by
 `IFPEN.AllotropeConverters.AllotropeModels.Gc`.
 
+### Pre-releases
+
+To try new versions in other projects before a release, run the *Generate and
+publish Allotrope models* workflow manually (`workflow_dispatch`) on the branch to
+test, with the `prerelease` input set to `alpha.N`, `beta.N` or `rc.N`. Locally the
+same option is `python generate.py --prerelease beta.1`. All packages of the run,
+including commons, then get the pre-release version and depend on each other's
+exact pre-release:
+
+| Registry | Version | Install it with |
+|---|---|---|
+| Maven Central | `2026.09.0-beta.1` | `<version>2026.09.0-beta.1</version>` |
+| npm | `2026.9.0-beta.1`, dist-tag `beta` | `npm install @ifpen/allotrope-models-gc@beta` (plus `@ifpen/allotrope-models-commons@beta`) |
+| NuGet | `2026.9.0-beta.1` | `dotnet add package IFPEN.AllotropeConverters.AllotropeModels.Gc --prerelease` |
+| PyPI | `2026.9.0b1` | `pip install --pre ifpen.allotrope_models.gc` (or `==2026.9.0b1`) |
+
+Pre-releases never become "latest" (npm publishes them under their own dist-tag;
+NuGet and pip ignore them unless asked). Published versions are immutable in every
+registry, so a fix needs the next label (`beta.2`); the final `2026.9.0` stays free.
+
 Generate all languages for the HPLC model locally with:
 
 ```powershell
