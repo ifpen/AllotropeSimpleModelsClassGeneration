@@ -156,6 +156,9 @@ components:
           $ref: '#/components/schemas/ChromatogramDataCube'
         chromatography column document:
           $ref: '#/components/schemas/chromatographyColumnDocument'
+        detection type:
+          description: "A detection type is a classification datum that classifies the type of detection performed by the detector.. [Allotrope]"
+          type: string
         device control aggregate document:
           $ref: '#/components/schemas/deviceControlAggregateDocument'
         injection document:
@@ -178,10 +181,10 @@ components:
     processedDataDocument:
       type: object
       properties:
+        match result aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreMatchResultAggregateDocument
         peak list:
           $ref: '#/components/schemas/peakList'
-      required:
-      - peak list
     chromatographyColumnDocument:
       type: object
       properties:
@@ -233,7 +236,9 @@ components:
           description: An injection identifier is an identifier that identifies some injection. [Allotrope]
           type: string
         injection time:
-          $ref: ./common.yaml#/components/schemas/DateTimeValue
+          description: "An injection time is a time that indicates when an injection is performed. [Allotrope]"
+          type: string
+          format: date-time
         injection volume setting:
           $ref: ./common.yaml#/components/schemas/MicrolitersQuantityValue
       required:
@@ -296,8 +301,14 @@ components:
         batch identifier:
           description: A batch identifier is an identifier that identifies a batch. [Allotrope]
           type: string
+        sample identifier:
+          description: "Sample id is a measurement metadata that identifies a sample being measured. [Allotrope]"
+          type: string
         sampling type:
           description: A sampling type is a classification datum that classifies the type of sampling approach used to take a sample. [Allotrope]
+          type: string
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
           type: string
     peakList:
       type: object
@@ -338,11 +349,11 @@ components:
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         number of theoretical plates by tangent method:
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-        number theoretical plates peak width at half height:
+        number of theoretical plates by peak width at half height:
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-        number theoretical plates peak width at half height (JP14):
+        number of theoretical plates by peak width at half height (JP14):
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-        number theoretical plates (chromatography):
+        number of theoretical plates (chromatography):
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         peak area:
           $ref: ./common.yaml#/components/schemas/QuantityValue
@@ -354,19 +365,21 @@ components:
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         peak start:
           $ref: ./common.yaml#/components/schemas/QuantityValue
-        peak width at 4.4 % height:
+        peak width at 4.4 % of height:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-        peak width at 32.4 % height:
+        peak width at 32.4 % of height:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
         peak width at half height:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-        peak width baseline:
+        peak width at baseline:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
         peak width at 10 % of height:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-        peak width at 13.4 % height:
+        peak width at 5 % of height:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-        peak width at 60.7 % height:
+        peak width at 13.4 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 60.7 % of height:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
         peak width at inflection:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
@@ -389,11 +402,6 @@ components:
           type: integer
           minimum: 1
           maximum: 2147483647
-      oneOf:
-      - required:
-        - retention time
-      - required:
-        - retention volume
     diagnosticTraceAggregateDocument:
       type: object
       properties:
