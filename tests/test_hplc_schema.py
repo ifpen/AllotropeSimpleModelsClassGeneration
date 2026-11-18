@@ -239,16 +239,26 @@ def test_hplc_named_components_keep_generator_safe_composition():
     elapsed_volume = core["CoreLogEntry"]["properties"]["elapsed volume"]
     assert elapsed_volume["properties"]["unit"]["enum"] == ["mL"]
 
-    # Keep the accepted time/volume units without external refs in oneOf
-    # branches, which the Python generator cannot resolve.
-    peak = schemas["PeakDocument"]["properties"]
+    # Peak start/end may be a time or a volume: a plain quantity, not a
+    # oneOf of unit branches (generators emit anonymous wrapper classes).
+    peak = schemas["PeakDocument"]
     for name in ("peak start", "peak end"):
-        alternatives = peak[name]["oneOf"]
-        assert [branch["properties"]["unit"]["enum"][0] for branch in alternatives] == [
-            "s",
-            "mL",
-        ]
-        assert all("$ref" not in branch for branch in alternatives)
+        assert peak["properties"][name] == {"$ref": "./common.yaml#/components/schemas/QuantityValue"}
+    # Peak metrics are plain optional properties, not 30 anyOf branches.
+    assert not {"oneOf", "anyOf", "allOf"} & peak.keys()
+    assert "peak width at 5 % of height" in peak["properties"]
+
+
+def test_hplc_properties_never_combine_ref_with_siblings():
+    """``$ref`` siblings are dropped by the generator; use a named unit schema."""
+    schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+    offenders = [
+        f"{name}.{prop}"
+        for name, schema in schemas.items()
+        for prop, sub in (schema.get("properties") or {}).items()
+        if isinstance(sub, dict) and "$ref" in sub and len(sub) > 1
+    ]
+    assert offenders == []
 
 
 def test_hplc_uses_shared_unit_quantity_schemas_when_available():

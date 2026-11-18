@@ -192,12 +192,6 @@ components:
       required:
       - ASM file identifier
       - data system instance identifier
-      oneOf:
-      - required:
-        - UNC path
-        - file name
-      - required:
-        - database primary key
     deviceSystemDocument:
       type: object
       properties:
@@ -355,13 +349,6 @@ components:
         well location identifier:
           description: "A well location identifier is a local identifier that identifies the location of a well on the container in the scope of the container. [Allotrope]"
           type: string
-      anyOf:
-      - required:
-        - location identifier
-      - required:
-        - vial location identifier
-      - required:
-        - well location identifier
     DeviceControlAggregateDocument:
       type: object
       properties:
@@ -417,87 +404,23 @@ components:
         detector sampling rate setting:
           $ref: ./common.yaml#/components/schemas/HertzQuantityValue
         detector bandwidth setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         detector wavelength setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         electronic absorbance bandwidth setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         electronic absorbance reference bandwidth setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         electronic absorbance reference wavelength setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         electronic absorbance wavelength setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         excitation bandwidth setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         excitation wavelength setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - nm
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
         number of scans setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - '#'
-          required:
-          - unit
+          $ref: ./common.yaml#/components/schemas/CountsQuantityValue
         polarization orientation setting:
           $ref: ./core.yaml#/components/schemas/CoreTNamed
         read interval setting:
@@ -509,23 +432,9 @@ components:
         detector relative offset setting:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
         m/z maximum setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - m/z
+          $ref: ./common.yaml#/components/schemas/MassToChargeQuantityValue
         m/z minimum setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - m/z
+          $ref: ./common.yaml#/components/schemas/MassToChargeQuantityValue
         measurement mode setting:
           description: "A measurement mode setting is a control setting that specifies the measurement mode of some measurement process. [Allotrope]"
           type: string
@@ -579,12 +488,6 @@ components:
       - profile setting feature
       - initial setting
       - final setting
-      anyOf:
-      - required:
-        - duration setting
-      - required:
-        - start time setting
-        - end time setting
       description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     SampleDocument:
       type: object
@@ -636,14 +539,7 @@ components:
           description: "A chromatography column chemistry type is a classification datum that classifies a chromatography column by the stationary phase and/or chromatographic packing used. [Allotrope]"
           type: string
         chromatography column length:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - cm
+          $ref: ./common.yaml#/components/schemas/CentimetersQuantityValue
         chromatography column part number:
           description: "A column part number is a part number that denotes some class of chromatography columns. [Allotrope]"
           type: string
@@ -666,19 +562,14 @@ components:
       type: object
       properties:
         autosampler injection volume setting (chromatography):
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - mm^3
+          $ref: ./common.yaml#/components/schemas/CubicMillimetersQuantityValue
         injection identifier:
           description: "An injection identifier is an identifier that identifies some injection. [Allotrope]"
           type: string
         injection time:
-          $ref: ./common.yaml#/components/schemas/DateTimeValue
+          description: "An injection time is a time that indicates when an injection is performed. [Allotrope]"
+          type: string
+          format: date-time
       required:
       - autosampler injection volume setting (chromatography)
       - injection identifier
@@ -704,14 +595,7 @@ components:
       type: object
       properties:
         flow rate setting:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - mL/min
+          $ref: ./common.yaml#/components/schemas/MillilitersPerMinuteQuantityValue
         laser firing frequency setting:
           $ref: ./common.yaml#/components/schemas/HertzQuantityValue
         sample introduction description:
@@ -740,53 +624,89 @@ components:
     PeakDocument:
       type: object
       properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        asymmetry factor measured at 10 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor measured at 4.4 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor measured at 5 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor measured at baseline:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor squared measured at 10 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor squared measured at 4.4 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         capacity factor (chromatography):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak asymmetry factor:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution using baseline peak widths:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution using peak width at half-height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution using statistical moments:
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         custom information aggregate document:
           $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
         identifier:
           description: "An identifier is a name that identifies (that is, labels the identity of) either a unique object or a unique class of objects, where the \"object\" or class may be an idea, physical [countable] object (or class thereof), or physical [uncountable] substance (or class thereof). [Wikipedia]"
           type: string
+        number of theoretical plates (chromatography):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates by peak width at half height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates by peak width at half height (JP14):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates by tangent method:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 13.4 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 32.4 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 4.4 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 60.7 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         peak area:
           $ref: ./common.yaml#/components/schemas/QuantityValue
         peak end:
           $ref: ./common.yaml#/components/schemas/QuantityValue
-          oneOf:
-          - type: object
-            properties:
-              unit:
-                description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-                type: string
-                enum:
-                - s
-          - type: object
-            properties:
-              unit:
-                description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-                type: string
-                enum:
-                - mL
         peak height:
           $ref: ./common.yaml#/components/schemas/QuantityValue
         peak selectivity (chromatography):
           $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         peak start:
           $ref: ./common.yaml#/components/schemas/QuantityValue
-          oneOf:
-          - type: object
-            properties:
-              unit:
-                description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-                type: string
-                enum:
-                - s
-          - type: object
-            properties:
-              unit:
-                description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-                type: string
-                enum:
-                - mL
+        peak value at end:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak value at start:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak width:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 10 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 13.4 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 32.4 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 4.4 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 5 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 60.7 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at baseline:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at half height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at inflection:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
         relative peak area:
           $ref: ./common.yaml#/components/schemas/PercentQuantityValue
         relative peak height:
@@ -794,121 +714,12 @@ components:
         retention time:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
         retention volume:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - mL
+          $ref: ./common.yaml#/components/schemas/MillilitersQuantityValue
+        statistical skew (chromatography):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
         written name:
           description: "A textual entity that denotes a particular in reality. [IAO]"
           type: string
-        '@index':
-          type: integer
-          minimum: 1
-          maximum: 2147483647
-        peak value at end:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-        peak value at start:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-      oneOf:
-      - required:
-        - retention time
-      - required:
-        - retention volume
-      anyOf:
-      - properties:
-          chromatographic peak resolution:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          chromatographic peak resolution using baseline peak widths:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          chromatographic peak resolution using peak width at half-height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          chromatographic peak resolution using statistical moments:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates (chromatography):
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates measured at 60.7 % of peak height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates measured at 32.4 % of peak height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates measured at 13.4 % of peak height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates measured at 4.4 % of peak height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates by tangent method:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates by peak width at half height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          number of theoretical plates by peak width at half height (JP14):
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          peak width at 4.4 % of height:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at 13.4 % of height:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at 32.4 % of height:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at 60.7 % of height:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at half height:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at 5 % of height:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at baseline:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at inflection:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width at 10 % of height:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          peak width:
-            $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
-      - properties:
-          statistical skew (chromatography):
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          asymmetry factor measured at 5 % height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          asymmetry factor measured at 10 % height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          asymmetry factor squared measured at 10 % height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          asymmetry factor squared measured at 4.4 % height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          asymmetry factor measured at 4.4 % height:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          asymmetry factor measured at baseline:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
-      - properties:
-          chromatographic peak asymmetry factor:
-            $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
       description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     MeasurementPeakList:
       type: object
@@ -923,44 +734,13 @@ components:
       type: object
       properties:
         peak area:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - S.s
+          $ref: ./common.yaml#/components/schemas/SiemensSecondsQuantityValue
         peak height:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - S
-          required:
-          - unit
+          $ref: ./common.yaml#/components/schemas/SiemensQuantityValue
         peak value at end:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - S
-          required:
-          - unit
+          $ref: ./common.yaml#/components/schemas/SiemensQuantityValue
         peak value at start:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          properties:
-            unit:
-              description: "A unit symbol is a symbol that denotes some unit. [Allotrope]"
-              type: string
-              enum:
-              - S
-          required:
-          - unit
+          $ref: ./common.yaml#/components/schemas/SiemensQuantityValue
         '@index':
           type: integer
           minimum: 1
