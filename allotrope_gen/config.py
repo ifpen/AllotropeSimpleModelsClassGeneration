@@ -274,7 +274,9 @@ LANGUAGES: dict[str, LanguageConfig] = {
             "ngVersion":   "19.0.0",
             "licenseName": "CeCILL, version 2.1",
         },
-        extra_opts=["--skip-validate-spec"],
+        # ``uniqueItems`` arrays would otherwise be typed as ``Set<T>``, but
+        # the models describe parsed JSON, where arrays are always arrays.
+        extra_opts=["--skip-validate-spec", "--type-mappings", "set=Array"],
         publish_cmd="npm publish --access public",
     ),
     "csharp": LanguageConfig(
