@@ -171,6 +171,11 @@ jobs:
     needs: [prepare, generate]
     if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
     runs-on: ubuntu-24.04
+    # npm trusted publishing (OIDC) is used when configured for the package;
+    # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
@@ -180,6 +185,8 @@ jobs:
         with:
           node-version: 22.22.1
           registry-url: https://registry.npmjs.org
+      - name: Install npm with trusted publishing support (>= 11.5.1)
+        run: npm install --global npm@11.21.1
       - name: Publish commons npm package
         working-directory: target/generated-sources/commons/typescript
         # ``npm install`` runs the ``prepare`` build; ng-packagr writes the
@@ -198,6 +205,11 @@ jobs:
     needs: [prepare, generate, publish-npm-commons]
     if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
     runs-on: ubuntu-24.04
+    # npm trusted publishing (OIDC) is used when configured for the package;
+    # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       matrix: ${{ fromJSON(needs.prepare.outputs.specs) }}
       fail-fast: false
@@ -210,6 +222,8 @@ jobs:
         with:
           node-version: 22.22.1
           registry-url: https://registry.npmjs.org
+      - name: Install npm with trusted publishing support (>= 11.5.1)
+        run: npm install --global npm@11.21.1
       - name: Publish ${{ matrix.spec }} npm package
         working-directory: target/generated-sources/${{ matrix.spec }}/typescript
         # Pre-releases go to their dist-tag (alpha/beta/rc), never to latest.
@@ -270,6 +284,9 @@ jobs:
     needs: [prepare, generate]
     if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"python"') }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       matrix: ${{ fromJSON(needs.prepare.outputs.modules) }}
       fail-fast: false
@@ -284,11 +301,11 @@ jobs:
       - name: Build Python distribution
         working-directory: target/generated-sources/${{ matrix.module }}/python
         run: |
-          python -m pip install build==1.6.1 twine==6.2.0
+          python -m pip install build==1.6.1
           python -m build
+      # PyPI trusted publishing: one (pending) publisher per project on pypi.org,
+      # all naming this workflow file (generate.yml).
       - name: Publish ${{ matrix.module }} to PyPI
-        working-directory: target/generated-sources/${{ matrix.module }}/python
-        run: twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: target/generated-sources/${{ matrix.module }}/python/dist/

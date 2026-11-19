@@ -350,9 +350,14 @@ Required GitHub secrets:
 | `MAVEN_PASSWORD` | publish-java |
 | `GPG_PRIVATE_KEY` | publish-java (artifact signing) |
 | `GPG_PASSPHRASE` | publish-java |
-| `NPM_TOKEN` | publish-npm-commons, publish-npm-specs |
-| `PYPI_TOKEN` | publish-pypi |
+| `NPM_TOKEN` | publish-npm-commons, publish-npm-specs (fallback until npm trusted publishing is configured per package) |
 
+PyPI uses **trusted publishing** (no secret): pypi.org has one publisher per project
+(`ifpen.allotrope_models`, `ifpen.allotrope_models.gc`, `.dsc`, `.hplc`), each naming owner
+`ifpen`, repository `AllotropeSimpleModelsClassGeneration` and workflow `generate.yml`
+(a *pending* publisher creates the project on first upload). npm jobs request an OIDC token
+and use npm ≥ 11.5.1, so npm trusted publishing applies once configured on each package's
+settings page (packages must exist first); until then npm uses `NPM_TOKEN`.
 NuGet uses **trusted publishing** (no secret): `publish-nuget` exchanges its GitHub OIDC
 token through `NuGet/login` (user `mvisconte`). The nuget.org trusted publishing policy must
 name repository `ifpen/AllotropeSimpleModelsClassGeneration` and workflow `generate.yml`;
