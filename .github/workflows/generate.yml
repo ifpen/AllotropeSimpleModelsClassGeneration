@@ -1,6 +1,13 @@
 name: Generate and publish Allotrope models
 
+# Publishing rules (allotrope_gen/release.py, PUBLISHING.md):
+# - GitHub release published (tag v<version>[-<label>]): publishes, after checking
+#   that the tag matches COMMONS_VERSION and every spec info.version;
+# - manual run: publishes a pre-release only (prerelease input), else builds only;
+# - push to main: generates and builds only.
 on:
+  release:
+    types: [published]
   push:
     branches: [main]
     paths:
@@ -33,7 +40,7 @@ on:
         type: boolean
         default: true
       prerelease:
-        description: 'Pre-release label to publish (alpha.N, beta.N or rc.N; empty = release)'
+        description: 'Pre-release label to publish (alpha.N, beta.N or rc.N); empty = build only, releases are published from GitHub releases'
         required: false
         default: ''
 
@@ -45,35 +52,28 @@ jobs:
       specs: ${{ steps.select.outputs.specs }}
       langs: ${{ steps.select.outputs.langs }}
       dry_run: ${{ steps.select.outputs.dry_run }}
+      publish: ${{ steps.select.outputs.publish }}
+      prerelease: ${{ steps.select.outputs.prerelease }}
+      spec_list: ${{ steps.select.outputs.spec_list }}
+      lang_list: ${{ steps.select.outputs.lang_list }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: '3.12.16'
+      - name: Install planner dependency
+        run: python -m pip install pyyaml==6.0.3
       - id: select
-        name: Resolve selected specs and languages
+        name: Plan the run (what to generate, whether to publish)
         env:
+          EVENT_NAME: ${{ github.event_name }}
           REQUESTED_SPECS: ${{ github.event.inputs.specs }}
           REQUESTED_LANGS: ${{ github.event.inputs.langs }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
-        run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          import os
-          from allotrope_gen.config import LANGUAGES, SPECS
-
-          specs = os.environ["REQUESTED_SPECS"].split() or list(SPECS)
-          langs = os.environ["REQUESTED_LANGS"].split() or list(LANGUAGES)
-          unknown_specs = sorted(set(specs) - set(SPECS))
-          unknown_langs = sorted(set(langs) - set(LANGUAGES))
-          if unknown_specs or unknown_langs:
-              raise SystemExit(f"Unknown specs={unknown_specs}, languages={unknown_langs}")
-
-          print("modules=" + json.dumps({"include": [{"module": m} for m in ["commons", *specs]]}))
-          print("specs=" + json.dumps({"include": [{"spec": s} for s in specs]}))
-          print("langs=" + json.dumps(langs))
-          print("dry_run=" + os.environ["DRY_RUN"])
-          PY
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: python -m allotrope_gen.release
 
   generate:
     needs: prepare
@@ -92,11 +92,11 @@ jobs:
         run: uv sync --locked --all-extras
       - name: Generate and verify builds
         env:
-          SPECS: ${{ github.event.inputs.specs }}
-          LANGS: ${{ github.event.inputs.langs }}
+          SPECS: ${{ needs.prepare.outputs.spec_list }}
+          LANGS: ${{ needs.prepare.outputs.lang_list }}
           DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
           VERIFY_BUILDS: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.verify_builds != 'false' }}
-          PRERELEASE: ${{ github.event.inputs.prerelease }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
         run: |
           set -euo pipefail
           args=()
@@ -116,7 +116,7 @@ jobs:
           uv run python generate.py "${args[@]}"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ needs.prepare.outputs.dry_run != 'true' }}
+        if: ${{ needs.prepare.outputs.publish == 'true' }}
         with:
           name: generated-sources
           path: |
@@ -128,7 +128,7 @@ jobs:
 
   publish-java:
     needs: [prepare, generate]
-    if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"java"') }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"java"') }}
     runs-on: ubuntu-24.04
     strategy:
       matrix: ${{ fromJSON(needs.prepare.outputs.modules) }}
@@ -169,7 +169,7 @@ jobs:
 
   publish-npm-commons:
     needs: [prepare, generate]
-    if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
     runs-on: ubuntu-24.04
     # npm trusted publishing (OIDC) is used when configured for the package;
     # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
@@ -200,11 +200,11 @@ jobs:
           npm stage publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PRERELEASE: ${{ github.event.inputs.prerelease }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
 
   publish-npm-specs:
     needs: [prepare, generate, publish-npm-commons]
-    if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
     runs-on: ubuntu-24.04
     # npm trusted publishing (OIDC) is used when configured for the package;
     # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
@@ -245,11 +245,11 @@ jobs:
           npm stage publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PRERELEASE: ${{ github.event.inputs.prerelease }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
 
   publish-nuget:
     needs: [prepare, generate]
-    if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"csharp"') }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"csharp"') }}
     runs-on: ubuntu-24.04
     # NuGet trusted publishing: the OIDC token is exchanged for a short-lived
     # API key. The nuget.org policy must name this workflow file (generate.yml).
@@ -293,7 +293,7 @@ jobs:
 
   publish-pypi:
     needs: [prepare, generate]
-    if: ${{ needs.prepare.outputs.dry_run != 'true' && contains(needs.prepare.outputs.langs, '"python"') }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"python"') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
