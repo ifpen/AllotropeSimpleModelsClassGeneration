@@ -148,6 +148,9 @@ jobs:
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
+          # Reuse downloaded plugins/dependencies: four parallel cold jobs can
+          # hit Maven Central's rate limit (HTTP 429).
+          cache: maven
       # Instrument modules depend on the commons artifact of the same run;
       # resolve it from the local repository instead of racing its publication.
       - name: Install commons into the local Maven repository
