@@ -244,10 +244,11 @@ def bundle_spec(
     Primitive aliases (e.g. ``CoreTNamed: {type: string}``) produce no class
     in the commons package; they are copied verbatim and left unmapped so the
     generator inlines the primitive type, exactly as it does for commons.
-    Inside every *mapped* schema, nested inline object schemas are replaced by
-    an empty ``{type: object}``: the generator never emits the mapped schema,
-    but it would otherwise still emit helper classes for those nested inline
-    objects (``DoubleValueOneOf`` …) into the instrument package.
+    Inside every *mapped* schema, nested inline objects and unions are
+    replaced by an empty ``{type: object}``: the generator never emits the
+    mapped schema, but it would otherwise still emit helper classes for them
+    (``DoubleValueOneOf``, ``AsmDatacubeComponentAsmFillValue`` …) into the
+    instrument package.
 
     Returns:
         ``(bundled_path, commons_names)`` where *commons_names* is the
@@ -313,15 +314,18 @@ def generates_model(schema: dict) -> bool:
 
 
 def _hollow_nested_inline_objects(schema: dict) -> None:
-    """Replace inline object schemas *below* the top level with ``{type: object}``.
+    """Replace inline objects and unions *below* the top level with ``{type: object}``.
 
-    ``$ref`` nodes, primitive leaves and the top-level node are untouched, so
-    the schema keeps its shape (object, composition, enum) for the generator.
+    The generator would emit a helper class for each of them (e.g.
+    ``AsmDatacubeComponentAsmFillValue`` for an inline ``anyOf``) even though
+    the mapped schema itself is never emitted.  ``$ref`` nodes, primitive
+    leaves and the top-level node are untouched, so the schema keeps its shape
+    (object, composition, enum) for the generator.
     """
     def visit(node: object, top: bool) -> object:
         if isinstance(node, dict):
             if not top and "$ref" not in node and (
-                "properties" in node or "additionalProperties" in node
+                {"properties", "additionalProperties", "oneOf", "anyOf", "allOf"} & node.keys()
             ):
                 return {"type": "object"}
             return {key: visit(value, False) for key, value in node.items()}

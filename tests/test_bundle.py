@@ -94,6 +94,21 @@ class TestBundleSpec:
         # Top-level properties stay intact.
         assert "value" in schemas["Value"]["properties"]
 
+    def test_nested_inline_unions_of_mapped_schemas_are_hollowed(self, tmp_path: Path):
+        common = _write(tmp_path / "common.yaml", {
+            "Component": {"type": "object", "properties": {
+                "fill": {"anyOf": [{"type": "string"}, {"type": "number"}]},
+                "unit": {"type": "string"},
+            }},
+        })
+        spec = _write(tmp_path / "gc.yaml", {
+            "Root": {"type": "object", "properties": {"c": {"$ref": "./common.yaml#/components/schemas/Component"}}},
+        })
+        bundled, mapped = bundle_spec(spec, tmp_path / "out", [common])
+        component = load_yaml(bundled)["components"]["schemas"]["Component"]
+        assert mapped == {"Component"}
+        assert component["properties"] == {"fill": {"type": "object"}, "unit": {"type": "string"}}
+
     def test_commons_name_clash_is_an_error(self, tmp_path: Path, commons: list[Path]):
         spec = _write(tmp_path / "gc.yaml", {"Doc": {"type": "object"}})
         with pytest.raises(SystemExit):
