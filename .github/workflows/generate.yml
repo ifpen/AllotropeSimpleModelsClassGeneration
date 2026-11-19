@@ -287,6 +287,11 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    # One GitHub environment per PyPI project: pypi.org accepts a pending
+    # publisher configuration (repository + workflow + environment) for a
+    # single project name only.
+    environment:
+      name: pypi-${{ matrix.module }}
     strategy:
       matrix: ${{ fromJSON(needs.prepare.outputs.modules) }}
       fail-fast: false
@@ -304,7 +309,7 @@ jobs:
           python -m pip install build==1.6.1
           python -m build
       # PyPI trusted publishing: one (pending) publisher per project on pypi.org,
-      # all naming this workflow file (generate.yml).
+      # naming this workflow file (generate.yml) and environment pypi-<module>.
       - name: Publish ${{ matrix.module }} to PyPI
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
