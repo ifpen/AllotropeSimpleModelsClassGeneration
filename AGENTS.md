@@ -351,8 +351,12 @@ Required GitHub secrets:
 | `GPG_PRIVATE_KEY` | publish-java (artifact signing) |
 | `GPG_PASSPHRASE` | publish-java |
 | `NPM_TOKEN` | publish-npm-commons, publish-npm-specs |
-| `NUGET_API_KEY` | publish-nuget |
 | `PYPI_TOKEN` | publish-pypi |
+
+NuGet uses **trusted publishing** (no secret): `publish-nuget` exchanges its GitHub OIDC
+token through `NuGet/login` (user `mvisconte`). The nuget.org trusted publishing policy must
+name repository `ifpen/AllotropeSimpleModelsClassGeneration` and workflow `generate.yml`;
+renaming the workflow file breaks publishing until the policy is updated.
 
 ---
 
