@@ -187,16 +187,17 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Install npm with trusted publishing support (>= 11.5.1)
         run: npm install --global npm@11.21.1
-      - name: Publish commons npm package
+      - name: Stage commons npm package
         working-directory: target/generated-sources/commons/typescript
         # ``npm install`` runs the ``prepare`` build; ng-packagr writes the
         # publishable Angular package (compiled code + metadata) to dist/.
-        # Pre-releases go to their dist-tag (alpha/beta/rc), never to latest.
+        # ``npm stage publish`` needs no 2FA; a maintainer approves the staged
+        # version on npmjs.com. Pre-releases use their dist-tag, never latest.
         run: |
           tag=latest
           if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
           npm install
-          npm publish ./dist --access public --tag "$tag"
+          npm stage publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PRERELEASE: ${{ github.event.inputs.prerelease }}
@@ -224,14 +225,24 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Install npm with trusted publishing support (>= 11.5.1)
         run: npm install --global npm@11.21.1
-      - name: Publish ${{ matrix.spec }} npm package
+      # A staged commons package is not installable from the registry: build
+      # and pack the commons of this run to satisfy the peer dependency.
+      - name: Pack commons from this run
+        working-directory: target/generated-sources/commons/typescript
+        run: |
+          npm install --ignore-scripts
+          npm run build
+          mkdir -p "$RUNNER_TEMP/commons"
+          npm pack ./dist --pack-destination "$RUNNER_TEMP/commons"
+      - name: Stage ${{ matrix.spec }} npm package
         working-directory: target/generated-sources/${{ matrix.spec }}/typescript
         # Pre-releases go to their dist-tag (alpha/beta/rc), never to latest.
         run: |
           tag=latest
           if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
-          npm install
-          npm publish ./dist --access public --tag "$tag"
+          npm install --ignore-scripts --no-save "$RUNNER_TEMP"/commons/*.tgz
+          npm run build
+          npm stage publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PRERELEASE: ${{ github.event.inputs.prerelease }}
@@ -314,3 +325,5 @@ jobs:
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: target/generated-sources/${{ matrix.module }}/python/dist/
+          # Re-running a release must not fail on files already uploaded.
+          skip-existing: true
