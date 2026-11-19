@@ -94,10 +94,14 @@ exact pre-release:
 
 | Registry | Version | Install it with |
 |---|---|---|
-| Maven Central | `2026.09.0-beta.1` | `<version>2026.09.0-beta.1</version>` |
-| npm | `2026.9.0-beta.1`, dist-tag `beta` | `npm install @ifpen/allotrope-models-gc@beta` (plus `@ifpen/allotrope-models-commons@beta`) |
+| Maven Central | `2026.09.0-beta1` | `<version>2026.09.0-beta1</version>` |
+| npm | `2026.9.0-beta.1`, dist-tag `beta` (staged, see below) | `npm install @ifpen/allotrope-models-gc@beta` (plus `@ifpen/allotrope-models-commons@beta`) |
 | NuGet | `2026.9.0-beta.1` | `dotnet add package IFPEN.AllotropeConverters.AllotropeModels.Gc --prerelease` |
 | PyPI | `2026.9.0b1` | `pip install --pre ifpen.allotrope_models.gc` (or `==2026.9.0b1`) |
+
+npm packages are *staged* (`npm stage publish`): no 2FA is needed in CI, and nothing is
+public until a maintainer approves each staged version on npmjs.com (or with
+`npm stage approve <id>`, which asks for 2FA). Approve commons first.
 
 Pre-releases never become "latest" (npm publishes them under their own dist-tag;
 NuGet and pip ignore them unless asked). Published versions are immutable in every

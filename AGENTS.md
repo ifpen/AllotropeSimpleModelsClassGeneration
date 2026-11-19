@@ -322,8 +322,8 @@ The workflow `generate.yml` runs on:
 - **Manual trigger** (`workflow_dispatch`) — accepts optional `specs`, `langs`, `dry_run`,
   `verify_builds`, and `prerelease` inputs. `prerelease` (`alpha.N`, `beta.N`, `rc.N`)
   publishes every package of the run as a pre-release (`generate.py --prerelease`):
-  Maven `2026.09.0-beta.1`, npm/NuGet `2026.9.0-beta.1` (npm dist-tag `beta`), PyPI
-  `2026.9.0b1`. Use it from a feature branch to test packages before a release; never
+  Maven `2026.09.0-beta1` (no dot: Central rejects `-beta.1` file names), npm/NuGet
+  `2026.9.0-beta.1` (npm dist-tag `beta`), PyPI `2026.9.0b1`. Use it from a feature branch to test packages before a release; never
   reuse a label, registries reject republished versions.
 
 The `generate` job installs the toolchain pinned in `.mise.toml` with `jdx/mise-action`
@@ -359,7 +359,10 @@ its module (`pypi-commons`, `pypi-gc`, `pypi-dsc`, `pypi-hplc`; pypi.org accepts
 publisher configuration for one project only). A *pending* publisher creates the project on
 first upload. npm jobs request an OIDC token
 and use npm ≥ 11.5.1, so npm trusted publishing applies once configured on each package's
-settings page (packages must exist first); until then npm uses `NPM_TOKEN`.
+settings page (packages must exist first); until then npm uses `NPM_TOKEN`. npm packages are
+**staged** (`npm stage publish`, no 2FA in CI) and become public only once a maintainer
+approves them on npmjs.com; spec jobs install commons from the run's artifact (tarball)
+because a staged commons is not installable from the registry.
 NuGet uses **trusted publishing** (no secret): `publish-nuget` exchanges its GitHub OIDC
 token through `NuGet/login` (user `mvisconte`). The nuget.org trusted publishing policy must
 name repository `ifpen/AllotropeSimpleModelsClassGeneration` and workflow `generate.yml`;
