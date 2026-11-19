@@ -360,3 +360,10 @@ class TestVersionPlaceholders:
             parsed = packaging_version.Version(pep440)
             assert str(parsed) == pep440 and parsed.is_prerelease
 
+
+@pytest.mark.parametrize("lang", ["java", "typescript-angular", "csharp", "python"])
+def test_packages_point_to_the_real_repository(lang):
+    """npm trusted publishing rejects packages whose repository URL is not the publisher's."""
+    from allotrope_gen.config import LANGUAGES
+    props = LANGUAGES[lang].extra_props
+    assert (props["gitUserId"], props["gitRepoId"]) == ("ifpen", "AllotropeSimpleModelsClassGeneration")

@@ -265,6 +265,11 @@ class LanguageConfig:
 # Language registry
 # ---------------------------------------------------------------------------
 
+#: Repository coordinates written into every package's metadata (npm
+#: ``repository``, NuGet ``RepositoryUrl``, PyPI project URL). npm trusted
+#: publishing checks the npm ``repository`` URL against the publishing repo.
+_GIT_REPOSITORY = {"gitUserId": "ifpen", "gitRepoId": "AllotropeSimpleModelsClassGeneration"}
+
 LANGUAGES: dict[str, LanguageConfig] = {
     "java": LanguageConfig(
         generator="java",
@@ -275,6 +280,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         import_pattern="{class_name}={commons_package}.{class_name}",
         commons_version="{version}",
         extra_props={
+            **_GIT_REPOSITORY,
             "artifactVersion":          "{version}",
             "groupId":                  "fr.ifpen.allotropeconverters",
             "artifactId":               "allotrope-models-{module}",
@@ -311,6 +317,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         # npm rejects zero-padded versions in ranges: use the strict form.
         commons_version="{semver}",
         extra_props={
+            **_GIT_REPOSITORY,
             "npmVersion":  "{semver}",
             "ngVersion":   "19.0.0",
             "licenseName": "CeCILL, version 2.1",
@@ -330,6 +337,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         import_pattern="{class_name}={commons_package}.Model.{class_name}",
         commons_version="{semver}",
         extra_props={
+            **_GIT_REPOSITORY,
             "packageVersion":     "{semver}",
             "netCoreProjectFile": "true",
             "targetFramework":    "netstandard2.0;net48",
@@ -359,6 +367,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         import_pattern="{class_name}={class_name}",
         commons_version="{pep440}",
         extra_props={
+            **_GIT_REPOSITORY,
             "packageVersion": "{pep440}",
             "packageUrl":     "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
             "packageAuthor":  "Maxime Visconte",
