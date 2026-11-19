@@ -306,7 +306,7 @@ class TestModuleVersions:
             assert resolve_version(cfg.commons_version, "", prerelease) == published
 
     @pytest.mark.parametrize("lang, key, expected", [
-        ("java", "artifactVersion", "2026.09.0-beta.1"),
+        ("java", "artifactVersion", "2026.09.0-beta1"),
         ("typescript-angular", "npmVersion", "2026.9.0-beta.1"),
         ("csharp", "packageVersion", "2026.9.0-beta.1"),
         ("python", "packageVersion", "2026.9.0b1"),

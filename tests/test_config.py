@@ -335,9 +335,9 @@ class TestVersionPlaceholders:
         }
 
     @pytest.mark.parametrize("label, maven, semver, pep440", [
-        ("alpha.1", "2026.09.0-alpha.1", "2026.9.0-alpha.1", "2026.9.0a1"),
-        ("beta.2", "2026.09.0-beta.2", "2026.9.0-beta.2", "2026.9.0b2"),
-        ("rc.10", "2026.09.0-rc.10", "2026.9.0-rc.10", "2026.9.0rc10"),
+        ("alpha.1", "2026.09.0-alpha1", "2026.9.0-alpha.1", "2026.9.0a1"),
+        ("beta.2", "2026.09.0-beta2", "2026.9.0-beta.2", "2026.9.0b2"),
+        ("rc.10", "2026.09.0-rc10", "2026.9.0-rc.10", "2026.9.0rc10"),
     ])
     def test_prerelease_forms(self, label: str, maven: str, semver: str, pep440: str):
         from allotrope_gen.config import version_placeholders
@@ -359,3 +359,4 @@ class TestVersionPlaceholders:
             pep440 = version_placeholders("2026.09.0", label)["{pep440}"]
             parsed = packaging_version.Version(pep440)
             assert str(parsed) == pep440 and parsed.is_prerelease
+

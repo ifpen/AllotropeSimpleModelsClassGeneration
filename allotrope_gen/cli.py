@@ -81,7 +81,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--prerelease", metavar="LABEL",
         help=(
             "Publish a pre-release: alpha.N, beta.N or rc.N (e.g. beta.1 gives "
-            "2026.09.0-beta.1 on Maven, 2026.9.0-beta.1 on npm/NuGet, "
+            "2026.09.0-beta1 on Maven, 2026.9.0-beta.1 on npm/NuGet, "
             "2026.9.0b1 on PyPI)."
         ),
     )

@@ -169,7 +169,9 @@ def version_placeholders(version: str, prerelease: str | None = None) -> dict[st
 
     ``{version}``
         Maven form: the OpenAPI version as written (``2026.09.0``), with a
-        ``-<label>`` pre-release suffix (``2026.09.0-beta.1``).
+        Maven-style pre-release qualifier without dot (``2026.09.0-beta1``):
+        Maven Central's validator rejected bundles whose file names contained
+        ``-beta.1`` ("Bundle has content that does NOT have a .pom file").
     ``{semver}``
         npm / NuGet SemVer: no zero padding (``2026.9.0-beta.1``).
     ``{pep440}``
@@ -190,7 +192,7 @@ def version_placeholders(version: str, prerelease: str | None = None) -> dict[st
         if match is None:
             raise ValueError(f"invalid pre-release {prerelease!r}: use alpha.N, beta.N or rc.N")
         kind, number = match.groups()
-        forms["{version}"] += f"-{prerelease}"
+        forms["{version}"] += f"-{kind}{number}"
         forms["{semver}"] += f"-{prerelease}"
         forms["{pep440}"] += f"{_PEP440_PRERELEASE[kind]}{number}"
     return forms

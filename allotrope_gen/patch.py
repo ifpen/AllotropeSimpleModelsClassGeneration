@@ -29,7 +29,7 @@ from pathlib import Path
 _MAVEN_NS = "http://maven.apache.org/POM/4.0.0"
 _CENTRAL_PLUGIN_GROUP    = "org.sonatype.central"
 _CENTRAL_PLUGIN_ARTIFACT = "central-publishing-maven-plugin"
-_CENTRAL_PLUGIN_VERSION  = "0.7.0"
+_CENTRAL_PLUGIN_VERSION  = "0.12.0"
 
 # Register the namespace so that ElementTree round-trips it without rewriting
 # every tag as ``ns0:artifactId`` etc.

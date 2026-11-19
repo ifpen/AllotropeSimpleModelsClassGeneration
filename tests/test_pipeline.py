@@ -185,7 +185,7 @@ class TestDeclareCommonsDependency:
 
 class TestCommonsDependencyPrerelease:
     @pytest.mark.parametrize("lang, target, expected", [
-        ("java", "add_java_dependency", "2026.09.0-beta.1"),
+        ("java", "add_java_dependency", "2026.09.0-beta1"),
         ("csharp", "add_csharp_package_reference", "2026.9.0-beta.1"),
         ("typescript-angular", "add_npm_peer_dependency", "2026.9.0-beta.1"),
         ("python", "patch_python_package", "2026.9.0b1"),
