@@ -72,6 +72,8 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── test_schema.py             # Schema collision and extraction tests
 │   ├── test_asm.py                # External ASM checkout discovery tests
 │   ├── test_bundle.py             # Spec bundling / mapping classification tests
+│   ├── test_release.py            # CI publishing plan (release tags, pre-releases)
+│   ├── test_spec_structure.py     # Orphan schemas, ignored keywords, duplicate YAML keys
 │   ├── test_commons_patches.py    # Commons dependency, NaN and C# patch tests
 │   ├── test_verify_deserialization.py # Example round-trip helper tests
 │   ├── test_deserialization.py    # Full spec × language example matrix (toolchains + ASM)
@@ -517,6 +519,11 @@ specifications are modeled. They complement (but do not override) the orchestrat
   wrappers such as `NanometersQuantityValue` instead.
 - 2026-11-18 - Property names must match the official REC schema exactly (e.g.
   `peak width at 4.4 % of height`); ASM unit symbols use Greek mu U+03BC (`μm`, `μL`).
+- 2026-11-19 - Specs must not contain debris: every schema reachable from its spec root,
+  every commons schema used by a spec, no `properties` on array schemas, no duplicate YAML
+  keys (PyYAML keeps the last silently), and no official `@index` item text used as a model
+  description. Detector-specific `allOf` constraints of the official schema (e.g. conductivity
+  peak units) are not separate models. `tests/test_spec_structure.py` enforces this.
 
 ## License
 
