@@ -85,6 +85,10 @@ published as `2026.9.0` on npm, NuGet and PyPI). The earlier GC-only NuGet packa
 
 ### Pre-releases
 
+The complete publishing process (registry setup, release procedure, troubleshooting) is
+described in [PUBLISHING.md](PUBLISHING.md).
+
+
 To try new versions in other projects before a release, run the *Generate and
 publish Allotrope models* workflow manually (`workflow_dispatch`) on the branch to
 test, with the `prerelease` input set to `alpha.N`, `beta.N` or `rc.N`. Locally the

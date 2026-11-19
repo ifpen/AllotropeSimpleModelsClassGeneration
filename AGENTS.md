@@ -37,6 +37,7 @@ AllotropeSimpleModelsClassGeneration/
 ├── generate.py                    # Thin CLI entry point
 ├── verify_builds.py               # Builds generated clients (commons first, local feeds)
 ├── verify_deserialization.py      # Round-trips official ASM examples in every client
+├── PUBLISHING.md                  # Release procedure, registry setup, troubleshooting
 ├── .mise.toml                     # Pinned project toolchain for Docker Sandbox
 ├── sbxenv.yaml                    # Docker Sandbox OpenCode environment
 ├── .sandbox/mise-network/          # Project-specific tool-download egress policy
@@ -313,6 +314,10 @@ will **fail with an error** — resolve the collision manually.
 ---
 
 ## CI / CD
+
+Registry configuration, the release procedure and known publishing errors are documented in
+`PUBLISHING.md`; keep it in sync with `generate.yml` and `allotrope_gen/config.py`.
+**A push to `main` that touches the trigger paths publishes release versions.**
 
 The workflow `generate.yml` runs on:
 
