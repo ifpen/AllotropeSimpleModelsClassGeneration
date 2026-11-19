@@ -5,13 +5,11 @@ released, how each registry is configured, and how to recover from the failures
 seen so far. The workflow is `.github/workflows/generate.yml`; all package names and
 versions are derived from `allotrope_gen/config.py`.
 
-> [!WARNING]
-> **A push to `main` publishes a release.** Any push to `main` that changes a spec
-> (`src/main/resources/**.yaml`), the generator (`allotrope_gen/**`, `generate.py`,
-> `verify_builds.py`), `pyproject.toml`, `uv.lock`, `requirements*.txt`, `.mise.toml`,
-> `openapitools.json` or the workflow itself starts the workflow *without* pre-release
-> label and *without* dry run: every package is published at its final version. Merging
-> a pull request that touches these paths therefore **is** a release.
+> [!IMPORTANT]
+> **Final versions are published only by publishing a GitHub release** whose tag matches
+> the package versions (`v2026.09.0`). Pushes and merges to `main` only generate and build;
+> manual runs publish pre-releases only. The rules are implemented in
+> `allotrope_gen/release.py` (unit-tested in `tests/test_release.py`).
 
 ## 1. What is published
 
@@ -70,15 +68,22 @@ every form (`version_placeholders()`):
 
 ## 3. How a run is started
 
-| Trigger | Result |
-|---|---|
-| Push to `main` touching the paths listed above | Generates, builds and **publishes release versions** of all modules and languages. |
-| Manual run (*Actions → Generate and publish Allotrope models → Run workflow*) | Same, with inputs: `specs`, `langs` (subsets), `prerelease` (label), `dry_run`, `verify_builds`. |
+The `prepare` job turns the triggering event into a plan (`python -m allotrope_gen.release`):
+
+| Trigger | Publishes | Notes |
+|---|---|---|
+| **GitHub release published**, tag `v2026.09.0` | **Final versions** of all modules and languages | The tag must equal `COMMONS_VERSION` and every spec's `info.version`, and the release must *not* be marked as pre-release; otherwise the run fails before generating. |
+| GitHub release published, tag `v2026.09.0-beta.2`, marked as **pre-release** | That pre-release (label `beta.2`) | Same version check; the label must be `alpha.N`, `beta.N` or `rc.N`. |
+| Manual run with `prerelease: beta.N` | That pre-release | Inputs `specs` / `langs` select subsets; any branch. |
+| Manual run without `prerelease`, or with `dry_run` | Nothing | Builds only (or, with `dry_run`, prints the generator commands). |
+| Push to `main` touching specs, generator, dependencies, toolchain or workflow | Nothing | Generates and builds every module (verification). |
 
 - `dry_run: true` installs the toolchain and prints the generator commands only; it does not
   generate, build, sign or publish. Use it to check the CI setup.
 - A manual run can target any branch; the workflow file of that branch is used. Pre-releases
   are published from feature branches this way.
+- The release tag uses the **Maven** spelling of the version (`v2026.09.0`), the pre-release
+  label keeps its dot (`v2026.09.0-beta.2`); each registry then gets its own spelling (§2).
 - **Re-running failed jobs** reuses the workflow file and the generated artifact of the
   original run. After changing the workflow, start a *new* run instead.
 
@@ -93,14 +98,16 @@ gh run watch                                                                    
 ## 4. Pipeline
 
 ```
-prepare ──► generate ──► publish-java        (matrix: commons, gc, dsc, hplc)
+prepare (plan) ──► generate ──► publish-java        (matrix: commons, gc, dsc, hplc)
                      ──► publish-npm-commons
                            └──► publish-npm-specs   (matrix: gc, dsc, hplc)
                      ──► publish-nuget       (matrix: commons, gc, dsc, hplc)
                      ──► publish-pypi        (matrix: commons, gc, dsc, hplc; environment pypi-<module>)
 ```
 
-- **prepare** resolves the selected specs and languages.
+- **prepare** plans the run (`allotrope_gen.release`): selected specs and languages,
+  pre-release label, whether to publish; it validates the release tag against the versions.
+  Publish jobs run only when the plan says `publish`.
 - **generate** installs the toolchain pinned in `.mise.toml` (`jdx/mise-action`), runs
   `uv sync --locked --all-extras` and `uv run python generate.py [--prerelease …]`, which
   generates every module and builds it (`verify_builds.py`, commons first). The output is
@@ -210,12 +217,18 @@ uv run python generate.py --prerelease beta.1  # optional: build with pre-releas
 
 ### 6.3 Publish a release
 
-1. Make sure `info.version` of every changed spec and `COMMONS_VERSION` are new, unpublished
-   versions (§2).
-2. Merge the pull request into `main`. The push starts the release run (see the warning at the
-   top); alternatively run the workflow manually on `main` without `prerelease`.
-3. Watch the run; approve the staged npm versions (commons first).
-4. Check installability (§6.4) and announce the release.
+1. Make sure `COMMONS_VERSION` and every spec's `info.version` equal the release version and
+   are unpublished (§2). All modules are released together at one version.
+2. Merge the pull request into `main` (this only builds).
+3. On GitHub, *Releases → Draft a new release*: tag **`v<version>`** (e.g. `v2026.09.0`) on
+   `main`, title and release notes, *not* marked as pre-release → *Publish release*.
+   From a terminal: `gh release create v2026.09.0 --target main --title "2026.9.0" --notes-file notes.md`.
+4. Watch the run started by the release; a tag/version mismatch fails in `prepare`, before
+   anything is built (delete the release and its tag, fix, and publish again).
+5. Approve the staged npm versions (commons first), check installability (§6.4).
+
+A pre-release can also be published this way: tag `v2026.09.0-rc.1`, release marked as
+*pre-release*. This keeps a GitHub release (with notes) per published pre-release.
 
 ### 6.4 Check that a version is installable
 

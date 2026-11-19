@@ -89,9 +89,10 @@ The complete publishing process (registry setup, release procedure, troubleshoot
 described in [PUBLISHING.md](PUBLISHING.md).
 
 
-To try new versions in other projects before a release, run the *Generate and
-publish Allotrope models* workflow manually (`workflow_dispatch`) on the branch to
-test, with the `prerelease` input set to `alpha.N`, `beta.N` or `rc.N`. Locally the
+Final versions are published by publishing a GitHub release tagged `v<version>`
+(e.g. `v2026.09.0`). To try new versions in other projects before a release, run the
+*Generate and publish Allotrope models* workflow manually (`workflow_dispatch`) on the
+branch to test, with the `prerelease` input set to `alpha.N`, `beta.N` or `rc.N`. Locally the
 same option is `python generate.py --prerelease beta.1`. All packages of the run,
 including commons, then get the pre-release version and depend on each other's
 exact pre-release:

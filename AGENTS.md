@@ -51,6 +51,7 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── config.py                  # Supported languages, specs, and filesystem config
 │   ├── patch.py                   # pom.xml patch module
 │   ├── pipeline.py                # Command subprocess execution pipeline
+│   ├── release.py                 # CI publishing plan (release tag / pre-release rules)
 │   └── schema.py                  # YAML loader and schema reference collector
 ├── src/
 │   └── main/
@@ -317,16 +318,20 @@ will **fail with an error** — resolve the collision manually.
 
 Registry configuration, the release procedure and known publishing errors are documented in
 `PUBLISHING.md`; keep it in sync with `generate.yml` and `allotrope_gen/config.py`.
-**A push to `main` that touches the trigger paths publishes release versions.**
+**Final versions are published only from a GitHub release whose tag (`v2026.09.0`) matches
+`COMMONS_VERSION` and every spec `info.version`** (rules in `allotrope_gen/release.py`).
 
 The workflow `generate.yml` runs on:
 
+- **GitHub release published** — publishes all modules; tag `v<version>` (final) or
+  `v<version>-<label>` (release marked as pre-release); the `prepare` job rejects tags that do
+  not match the module versions.
 - **Push to `main`** — only when `src/main/resources/**.yaml`, `generate.py`, `verify_builds.py`,
   the `allotrope_gen/` package, `pyproject.toml`, `uv.lock`, `.mise.toml`, `openapitools.json`,
-  or the workflow itself changes.
+  or the workflow itself changes; generates and builds only, never publishes.
 - **Manual trigger** (`workflow_dispatch`) — accepts optional `specs`, `langs`, `dry_run`,
-  `verify_builds`, and `prerelease` inputs. `prerelease` (`alpha.N`, `beta.N`, `rc.N`)
-  publishes every package of the run as a pre-release (`generate.py --prerelease`):
+  `verify_builds`, and `prerelease` inputs. Without `prerelease` a manual run only builds.
+  `prerelease` (`alpha.N`, `beta.N`, `rc.N`) publishes every package of the run as a pre-release (`generate.py --prerelease`):
   Maven `2026.09.0-beta1` (no dot: Central rejects `-beta.1` file names), npm/NuGet
   `2026.9.0-beta.1` (npm dist-tag `beta`), PyPI `2026.9.0b1`. Use it from a feature branch to test packages before a release; never
   reuse a label, registries reject republished versions.
