@@ -237,7 +237,7 @@ def test_hplc_named_components_keep_generator_safe_composition():
     assert log == {"$ref": "./core.yaml#/components/schemas/CoreLog"}
     core = load_yaml(SPECS["hplc"].parent / "core.yaml")["components"]["schemas"]
     elapsed_volume = core["CoreLogEntry"]["properties"]["elapsed volume"]
-    assert elapsed_volume["properties"]["unit"]["enum"] == ["mL"]
+    assert elapsed_volume == {"$ref": "./common.yaml#/components/schemas/MillilitersQuantityValue"}
 
     # Peak start/end may be a time or a volume: a plain quantity, not a
     # oneOf of unit branches (generators emit anonymous wrapper classes).

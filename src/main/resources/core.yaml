@@ -174,7 +174,6 @@ components:
           type: boolean
       required:
       - datum label
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     CoreCalculatedDataDocument:
       type: object
       properties:
@@ -197,7 +196,6 @@ components:
       required:
       - calculated data name
       - calculated result
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     CoreDataSourceDocument:
       type: object
       properties:
@@ -211,7 +209,6 @@ components:
           maximum: 2147483647
       required:
       - data source identifier
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     CoreElectronicSignatureDocument:
       type: object
       properties:
@@ -240,16 +237,6 @@ components:
       - personal name
       - signature role type
       - time
-      anyOf:
-      - required:
-        - identifier
-      - required:
-        - measurement identifier
-      - required:
-        - processed data identifier
-      - required:
-        - method identifier
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     CoreStatisticsDocument:
       type: object
       properties:
@@ -472,13 +459,7 @@ components:
         custom information aggregate document:
           $ref: '#/components/schemas/CoreCustomInformationAggregateDocument'
         elapsed time:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              type: string
-              enum:
-              - min
+          $ref: ./common.yaml#/components/schemas/MinutesQuantityValue
         identifier:
           type: string
         log source name:
@@ -488,13 +469,7 @@ components:
         scalar timestamp datum:
           $ref: ./common.yaml#/components/schemas/DateTimeValue
         elapsed volume:
-          $ref: ./common.yaml#/components/schemas/QuantityValue
-          type: object
-          properties:
-            unit:
-              type: string
-              enum:
-              - mL
+          $ref: ./common.yaml#/components/schemas/MillilitersQuantityValue
       required:
       - observation
       - scalar timestamp datum
@@ -539,7 +514,6 @@ components:
           type: integer
           minimum: 1
           maximum: 2147483647
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     MatchResultDocument:
       type: object
       properties:

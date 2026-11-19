@@ -39,44 +39,6 @@ components:
       required:
         - value
 
-    StringValue:
-      description: ASM string value, represented either as a primitive or a typed value object.
-      oneOf:
-        - type: string
-        - type: object
-          properties:
-            "@type":
-              type: string
-            value:
-              type: string
-          required: ["@type", value]
-
-    DoubleValue:
-      description: ASM double value, represented either as a primitive or a typed value object.
-      oneOf:
-        - type: number
-          format: double
-        - type: object
-          properties:
-            "@type":
-              type: string
-            value:
-              type: number
-              format: double
-          required: ["@type", value]
-
-    BooleanValue:
-      description: ASM boolean value, represented either as a primitive or a typed value object.
-      oneOf:
-        - type: boolean
-        - type: object
-          properties:
-            "@type":
-              type: string
-            value:
-              type: boolean
-          required: ["@type", value]
-
     DateTimeValue:
       description: ASM date-time value, represented either as a primitive or a typed value object.
       oneOf:
@@ -117,39 +79,6 @@ components:
               type: integer
           required: ["@type", value]
 
-    AsmManifest:
-      description: ASM manifest identifier or embedded manifest document.
-      oneOf:
-        - type: string
-          format: uri
-        - type: object
-          properties:
-            "@id":
-              type: string
-              format: uri
-            "@type":
-              type: string
-              format: uri
-            json-schemas:
-              type: array
-              minItems: 1
-              items:
-                type: string
-                format: uri
-            shapes:
-              type: array
-              minItems: 1
-              items:
-                type: string
-                format: uri
-            vocabulary:
-              type: array
-              minItems: 1
-              items:
-                type: string
-                format: uri
-          required: [json-schemas, vocabulary]
-
     MetersQuantityValue:
       allOf:
         - $ref: '#/components/schemas/QuantityValue'
@@ -185,6 +114,15 @@ components:
             unit:
               type: string
               enum: ["s"]
+
+    MinutesQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: ["min"]
 
     MicrolitersQuantityValue:
       allOf:
@@ -264,25 +202,6 @@ components:
               enum: [ "m/z" ]
               x-enum-varnames: [ m_per_z ]
 
-    SiemensQuantityValue:
-      allOf:
-        - $ref: '#/components/schemas/QuantityValue'
-        - type: object
-          properties:
-            unit:
-              type: string
-              enum: [ "S" ]
-
-    SiemensSecondsQuantityValue:
-      allOf:
-        - $ref: '#/components/schemas/QuantityValue'
-        - type: object
-          properties:
-            unit:
-              type: string
-              enum: [ "S.s" ]
-              x-enum-varnames: [ S_s ]
-
     HertzQuantityValue:
       allOf:
         - $ref: '#/components/schemas/QuantityValue'
@@ -309,15 +228,6 @@ components:
             unit:
               type: string
               enum: [ "%" ]
-
-    MilligramsQuantityValue:
-      allOf:
-        - $ref: '#/components/schemas/QuantityValue'
-        - type: object
-          properties:
-            unit:
-              type: string
-              enum: [ "mg" ]
 
     DegreesCelsiusQuantityValue:
       allOf:

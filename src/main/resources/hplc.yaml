@@ -266,7 +266,6 @@ components:
           maximum: 2147483647
       required:
       - device type
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     liquidChromatographyDocument:
       type: object
       properties:
@@ -442,7 +441,6 @@ components:
           $ref: ./core.yaml#/components/schemas/CoreTNamed
       required:
       - device type
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     ProfileSettingAggregateDocument:
       type: object
       properties:
@@ -488,7 +486,6 @@ components:
       - profile setting feature
       - initial setting
       - final setting
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     SampleDocument:
       type: object
       properties:
@@ -720,32 +717,6 @@ components:
         written name:
           description: "A textual entity that denotes a particular in reality. [IAO]"
           type: string
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
-    MeasurementPeakList:
-      type: object
-      properties:
-        peak:
-          description: "A peak is a data region containing a single local extremum in the dependent variable of the distribution function. [Allotrope]"
-          type: array
-          minItems: 0
-          items:
-            $ref: '#/components/schemas/MeasurementPeakDocument'
-    MeasurementPeakDocument:
-      type: object
-      properties:
-        peak area:
-          $ref: ./common.yaml#/components/schemas/SiemensSecondsQuantityValue
-        peak height:
-          $ref: ./common.yaml#/components/schemas/SiemensQuantityValue
-        peak value at end:
-          $ref: ./common.yaml#/components/schemas/SiemensQuantityValue
-        peak value at start:
-          $ref: ./common.yaml#/components/schemas/SiemensQuantityValue
-        '@index':
-          type: integer
-          minimum: 1
-          maximum: 2147483647
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     DiagnosticTraceAggregateDocument:
       type: object
       properties:
@@ -798,7 +769,6 @@ components:
         data format specification type:
           description: "A data format specification type is a classification datum that classifies the data format used to store data. [Allotrope]"
           type: string
-      description: A schema for an array item, that is ordered in a not-natural way. This means that it MUST have an explicit @index property stating the position. The index value is a strict positive 32bit signed integer (excluding 0).
     MeasurementProcessedDataAggregateDocument:
       type: object
       properties:
@@ -812,8 +782,5 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/MeasurementProcessedDataDocument'
-          properties:
-            peak list:
-              $ref: '#/components/schemas/MeasurementPeakList'
       required:
       - processed data document
