@@ -61,6 +61,7 @@ components:
           $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
         description:
           description: A description is a proposition about an existing entity. [Allotrope]
+          type: string
         device document:
           description: A device document is a document that encompasses the information associated with a device. [Allotrope]
           type: array
@@ -420,10 +421,17 @@ components:
       properties:
         custom information aggregate document:
           $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
         description:
           description: A description is a proposition about an existing entity. [Allotrope]
+          type: string
       required:
       - description
+      # Official schema: any member whose name ends with "data cube" is a datacube
+      # (e.g. "pH data cube"); the common "data cube" is declared explicitly.
+      additionalProperties:
+        $ref: ./datacube.yaml#/components/schemas/AsmDatacube
     ChromatogramDataCube:
       type: object
       properties:

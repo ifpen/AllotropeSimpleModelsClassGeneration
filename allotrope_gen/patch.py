@@ -655,3 +655,67 @@ def patch_csharp_optional_enum_writes(output_dir: Path, dry_run: bool = False) -
                 if not dry_run:
                     source.write_text(new_text, encoding="utf-8")
     print(f"  [csharp patch] guarded {patched} optional enum write(s)")
+
+
+# ---------------------------------------------------------------------------
+# C# additional properties
+# ---------------------------------------------------------------------------
+#
+# Models with ``additionalProperties`` (diagnostic trace documents: any
+# ``… data cube`` member) get an ``AdditionalProperties`` dictionary, but the
+# generic-host converters ignore unknown members on read (``default: break``)
+# and never write the dictionary, so those members were silently lost.
+
+_CS_EXTRA_MARKER = "public Dictionary<string, JsonElement> AdditionalProperties"
+_CS_EXTRA_PATCHED = "// allotrope_gen: additional properties"
+
+
+def patch_csharp_additional_properties(output_dir: Path, dry_run: bool = False) -> None:
+    """Make C# converters read and write ``AdditionalProperties`` (idempotent).
+
+    Raises:
+        PatchError: If a converter no longer has the expected shape.
+    """
+    patched = 0
+    for project in _csharp_projects(output_dir):
+        for source in sorted((project / "Model").glob("*.cs")):
+            text = source.read_text(encoding="utf-8")
+            if _CS_EXTRA_MARKER not in text or _CS_EXTRA_PATCHED in text:
+                continue
+            name = source.stem
+            variable = name[0].lower() + name[1:]
+            text = _replace_exact(
+                text,
+                r"^(            while \(utf8JsonReader\.Read\(\)\)\n)",
+                f"            var additionalProperties = new Dictionary<string, JsonElement>(); {_CS_EXTRA_PATCHED}\n\\1",
+                source,
+            )
+            text = _replace_exact(
+                text,
+                r"^(                        default:\n)(                            break;\n)",
+                "\\1                            additionalProperties[localVarJsonPropertyName] = JsonElement.ParseValue(ref utf8JsonReader);\n\\2",
+                source,
+            )
+            text = _replace_exact(
+                text,
+                rf"^            return new {re.escape(name)}\((.*)\);\n",
+                f"            var result = new {name}(\\1);\n"
+                "            foreach (var entry in additionalProperties)\n"
+                "                result.AdditionalProperties[entry.Key] = entry.Value;\n"
+                "            return result;\n",
+                source,
+            )
+            text = _replace_exact(
+                text,
+                rf"^(            WriteProperties\(writer, {re.escape(variable)}, jsonSerializerOptions\);\n)",
+                f"\\1            foreach (var entry in {variable}.AdditionalProperties)\n"
+                "            {\n"
+                "                writer.WritePropertyName(entry.Key);\n"
+                "                entry.Value.WriteTo(writer);\n"
+                "            }\n",
+                source,
+            )
+            patched += 1
+            if not dry_run:
+                source.write_text(text, encoding="utf-8")
+    print(f"  [csharp patch] {patched} converter(s) keep additional properties")

@@ -203,7 +203,7 @@ components:
           type: string
         custom information aggregate document:
           $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
-        description: {description: "A description is a proposition about an existing entity. [Allotrope]"}
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
         device document:
           description: "A device document is a document that encompasses the information associated with a device. [Allotrope]"
           type: array
@@ -462,7 +462,7 @@ components:
           type: string
         custom information aggregate document:
           $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
-        description: {description: "A description is a proposition about an existing entity. [Allotrope]"}
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
         duration setting:
           $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
         end time setting:
@@ -494,7 +494,7 @@ components:
           type: string
         custom information aggregate document:
           $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
-        description: {description: "A description is a proposition about an existing entity. [Allotrope]"}
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
         location identifier:
           description: "A location identifier is an identifier that identifies some location or site. [Allotrope]"
           type: string
@@ -733,9 +733,13 @@ components:
       properties:
         custom information aggregate document:
           $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
-        description: {description: "A description is a proposition about an existing entity. [Allotrope]"}
+        data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
       required:
       - description
+      # Official schema: any member whose name ends with "data cube" is a datacube
+      # (e.g. "pH data cube"); the common "data cube" is declared explicitly.
       additionalProperties:
         $ref: ./datacube.yaml#/components/schemas/AsmDatacube
     MeasurementProcessedDataDocument:
@@ -749,7 +753,7 @@ components:
           $ref: ./core.yaml#/components/schemas/DataProcessingDocument
         data source aggregate document:
           $ref: ./core.yaml#/components/schemas/CoreDataSourceAggregateDocument
-        description: {description: "A description is a proposition about an existing entity. [Allotrope]"}
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
         electronic project record:
           $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
         group identifier:

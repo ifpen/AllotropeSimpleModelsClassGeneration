@@ -30,6 +30,7 @@ from .patch import (
     add_npm_peer_dependency,
     PatchError,
     patch_java_pom,
+    patch_csharp_additional_properties,
     patch_csharp_optional_enum_writes,
     patch_nan_support,
     patch_python_package,
@@ -148,6 +149,7 @@ def generate_commons(
             if cfg.generator == "csharp":
                 try:
                     patch_csharp_optional_enum_writes(out, dry_run)
+                    patch_csharp_additional_properties(out, dry_run)
                     add_csharp_commons_registry(out, cfg.package_fn(""), dry_run)
                 except PatchError as exc:
                     print(f"[ERROR] {exc}", file=sys.stderr)
@@ -233,6 +235,7 @@ def generate_specs(
                 if cfg.generator == "csharp":
                     try:
                         patch_csharp_optional_enum_writes(out, dry_run)
+                        patch_csharp_additional_properties(out, dry_run)
                     except PatchError as exc:
                         print(f"[ERROR] {exc}", file=sys.stderr)
                         all_ok = False

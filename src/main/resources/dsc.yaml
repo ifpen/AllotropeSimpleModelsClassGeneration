@@ -244,6 +244,10 @@ components:
           type: string
       required:
         - description
+      # Official schema: any member whose name ends with "data cube" is a datacube
+      # (e.g. "pH data cube"); the common "data cube" is declared explicitly.
+      additionalProperties:
+        $ref: ./datacube.yaml#/components/schemas/AsmDatacube
 
     DscMeasurementDocument:
       type: object

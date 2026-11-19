@@ -205,11 +205,58 @@ def with_nan_quantity(document: object) -> bool:
     return False
 
 
+def _with_diagnostic_trace(document: object) -> bool:
+    """Add a diagnostic trace to the first measurement aggregate document.
+
+    Diagnostic trace documents hold a ``description``, a ``data cube`` and any
+    number of named ``… data cube`` members (official ``patternProperties:
+    "data cube$"``), modelled as additional properties.  The official GC, DSC
+    and LC examples do not cover named cubes; this small synthetic trace does.
+    """
+    if isinstance(document, dict):
+        aggregate = document.get("measurement aggregate document")
+        if isinstance(aggregate, dict) and "measurement document" in aggregate:
+            aggregate["diagnostic trace aggregate document"] = {
+                "diagnostic trace document": [{
+                    "description": "pump pressure trace",
+                    "data cube": {
+                        "label": "column temperature",
+                        "cube-structure": {
+                            "dimensions": [{"@componentDatatype": "double", "concept": "retention time", "unit": "s"}],
+                            "measures": [{"@componentDatatype": "double", "concept": "temperature", "unit": "degC"}],
+                        },
+                        "data": {"dimensions": [[0.0, 1.5]], "measures": [[30.0, 30.1]]},
+                    },
+                    "pump pressure data cube": {
+                        "label": "pump pressure",
+                        "cube-structure": {
+                            "dimensions": [{"@componentDatatype": "double", "concept": "retention time", "unit": "s"}],
+                            "measures": [{"@componentDatatype": "double", "concept": "pressure", "unit": "bar"}],
+                        },
+                        "data": {"dimensions": [[0.0, 1.5]], "measures": [[120.5, 121.0]]},
+                    },
+                }],
+            }
+            return True
+        return any(_with_diagnostic_trace(child) for child in document.values())
+    if isinstance(document, list):
+        return any(_with_diagnostic_trace(child) for child in document)
+    return False
+
+
+#: Synthetic variants of a spec's first example: ``(file suffix, mutation)``.
+#: Each mutation must return ``True`` when it changed the document.
+SYNTHETIC_VARIANTS: dict[str, tuple[tuple[str, object], ...]] = {
+    spec: (("diagnostic-trace", _with_diagnostic_trace),) for spec in ("gc", "dsc", "hplc")
+}
+
+
 def prepare_examples(spec: str, examples: list[Path], work: Path) -> list[Path]:
     """Write deviation-free copies of *examples* into *work*.
 
     Besides one copy per example (same file name), a ``<name>.nan.json``
-    variant of the first example has one quantity value set to ``"NaN"``.
+    variant of the first example has one quantity value set to ``"NaN"``, and
+    :data:`SYNTHETIC_VARIANTS` add ``<name>.<suffix>.json`` variants.
     """
     target = work / "examples"
     target.mkdir()
@@ -223,6 +270,14 @@ def prepare_examples(spec: str, examples: list[Path], work: Path) -> list[Path]:
         copy = target / example.name
         copy.write_text(json.dumps(cleaned, ensure_ascii=False), encoding="utf-8")
         prepared.append(copy)
+        if example is examples[0]:
+            for suffix, mutate in SYNTHETIC_VARIANTS.get(spec, ()):
+                document = json.loads(json.dumps(cleaned))
+                if not mutate(document):
+                    raise RuntimeError(f"synthetic variant {suffix!r} does not apply to {example.name}")
+                variant = target / f"{example.stem}.{suffix}.json"
+                variant.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+                prepared.append(variant)
         if example is examples[0] and with_nan_quantity(cleaned):
             variant = target / f"{example.stem}.nan.json"
             variant.write_text(json.dumps(cleaned, ensure_ascii=False), encoding="utf-8")

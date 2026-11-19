@@ -125,6 +125,36 @@ def test_no_ignored_or_misplaced_keywords(path: Path):
     assert problems == []
 
 
+_TYPING_KEYWORDS = {"type", "$ref", "allOf", "oneOf", "anyOf", "enum", "const", "properties", "items"}
+
+
+@pytest.mark.parametrize("path", FILES, ids=lambda p: p.name)
+def test_no_untyped_properties(path: Path):
+    """A property schema with only a description becomes ``Object``/``Any``."""
+    schemas = yaml.safe_load(path.read_text(encoding="utf-8"))["components"]["schemas"]
+    untyped = [
+        f"{where}.{name}"
+        for where, node in _walk(schemas, path.stem)
+        if isinstance(node.get("properties"), dict)
+        for name, prop in node["properties"].items()
+        if isinstance(prop, dict) and not _TYPING_KEYWORDS & set(prop)
+    ]
+    assert untyped == []
+
+
+@pytest.mark.parametrize("path", [*SPECS.values()], ids=lambda p: p.name)
+def test_diagnostic_traces_keep_named_data_cubes(path: Path):
+    """Official ``patternProperties: "data cube$"``: named cubes are additional properties."""
+    schemas = yaml.safe_load(path.read_text(encoding="utf-8"))["components"]["schemas"]
+    traces = [name for name in schemas if name.lower().endswith("diagnostictracedocument")]
+    assert traces, f"no diagnostic trace document in {path.name}"
+    for name in traces:
+        trace = schemas[name]
+        assert trace["properties"]["description"]["type"] == "string"
+        assert trace["properties"]["data cube"]["$ref"].endswith("/AsmDatacube")
+        assert trace["additionalProperties"]["$ref"].endswith("/AsmDatacube")
+
+
 @pytest.mark.parametrize("path", FILES, ids=lambda p: p.name)
 def test_no_duplicate_yaml_keys(path: Path):
     """PyYAML silently keeps the last of duplicate keys."""

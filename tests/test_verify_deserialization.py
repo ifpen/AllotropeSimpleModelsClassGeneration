@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 
 from verify_deserialization import (
     KNOWN_EXAMPLE_DEVIATIONS,
@@ -69,6 +71,26 @@ class TestDeviations:
             assert all(parent and member and reason for parent, member, reason in rules)
 
 
+class TestSyntheticVariants:
+    def test_hplc_diagnostic_trace_variant(self, tmp_path: Path):
+        example = tmp_path / "lc.json"
+        example.write_text(json.dumps({"measurement aggregate document": {"measurement document": [{}]}}), encoding="utf-8")
+        work = tmp_path / "work"
+        work.mkdir()
+        prepared = {p.name: p for p in prepare_examples("hplc", [example], work)}
+        trace = json.loads(prepared["lc.diagnostic-trace.json"].read_text(encoding="utf-8"))
+        document = trace["measurement aggregate document"]["diagnostic trace aggregate document"]["diagnostic trace document"][0]
+        assert document["description"] and "pump pressure data cube" in document
+
+    def test_variant_must_apply(self, tmp_path: Path):
+        example = tmp_path / "lc.json"
+        example.write_text("{}", encoding="utf-8")
+        work = tmp_path / "work"
+        work.mkdir()
+        with pytest.raises(RuntimeError):
+            prepare_examples("hplc", [example], work)
+
+
 class TestNanVariant:
     def test_first_quantity_value_becomes_nan(self):
         doc = {"a": [{"value": 1, "unit": "s"}, {"value": 2, "unit": "s"}], "b": {"value": 3}}
@@ -78,7 +100,8 @@ class TestNanVariant:
     def test_no_quantity(self):
         assert not with_nan_quantity({"value": True, "unit": "s"})
 
-    def test_prepare_examples_writes_copies_and_variant(self, tmp_path: Path):
+    def test_prepare_examples_writes_copies_and_variant(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("verify_deserialization.SYNTHETIC_VARIANTS", {})
         example = tmp_path / "ex.json"
         example.write_text(json.dumps({"q": {"value": 1.0, "unit": "s"}}), encoding="utf-8")
         work = tmp_path / "work"

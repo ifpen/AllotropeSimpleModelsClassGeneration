@@ -15,6 +15,7 @@ from allotrope_gen.patch import (
     add_csharp_package_reference,
     add_java_dependency,
     add_npm_peer_dependency,
+    patch_csharp_additional_properties,
     patch_csharp_optional_enum_writes,
     patch_nan_support,
     patch_python_package,
@@ -278,3 +279,48 @@ class TestCsharpOptionalEnumWrites:
         )
         with pytest.raises(PatchError):
             patch_csharp_optional_enum_writes(tmp_path)
+
+
+class TestCsharpAdditionalProperties:
+    SOURCE = (
+        "        public Dictionary<string, JsonElement> AdditionalProperties { get; } = new Dictionary<string, JsonElement>();\n"
+        "            while (utf8JsonReader.Read())\n"
+        "            {\n"
+        "                    switch (localVarJsonPropertyName)\n"
+        "                    {\n"
+        "                        default:\n"
+        "                            break;\n"
+        "                    }\n"
+        "            }\n"
+        "            return new TraceDocument(description.Value, customInformation);\n"
+        "            WriteProperties(writer, traceDocument, jsonSerializerOptions);\n"
+        "            writer.WriteEndObject();\n"
+    )
+
+    def test_reads_and_writes_extra_members(self, tmp_path: Path):
+        model = tmp_path / "src" / "Lib" / "Model"
+        model.mkdir(parents=True)
+        source = model / "TraceDocument.cs"
+        source.write_text(self.SOURCE, encoding="utf-8")
+        patch_csharp_additional_properties(tmp_path)
+        patch_csharp_additional_properties(tmp_path)  # idempotent
+        text = source.read_text(encoding="utf-8")
+        assert text.count("var additionalProperties = new Dictionary<string, JsonElement>();") == 1
+        assert "additionalProperties[localVarJsonPropertyName] = JsonElement.ParseValue(ref utf8JsonReader);" in text
+        assert "result.AdditionalProperties[entry.Key] = entry.Value;" in text
+        assert "foreach (var entry in traceDocument.AdditionalProperties)" in text
+
+    def test_models_without_additional_properties_are_untouched(self, tmp_path: Path):
+        model = tmp_path / "src" / "Lib" / "Model"
+        model.mkdir(parents=True)
+        source = model / "Plain.cs"
+        source.write_text("            while (utf8JsonReader.Read())\n", encoding="utf-8")
+        patch_csharp_additional_properties(tmp_path)
+        assert source.read_text(encoding="utf-8") == "            while (utf8JsonReader.Read())\n"
+
+    def test_unexpected_shape_fails(self, tmp_path: Path):
+        model = tmp_path / "src" / "Lib" / "Model"
+        model.mkdir(parents=True)
+        (model / "TraceDocument.cs").write_text(self.SOURCE.replace("default:", "case \"x\":"), encoding="utf-8")
+        with pytest.raises(PatchError):
+            patch_csharp_additional_properties(tmp_path)
