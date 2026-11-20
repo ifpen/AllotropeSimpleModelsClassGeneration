@@ -12,9 +12,17 @@ A project from [IFP Energies Nouvelles][ifpen], a public research, innovation an
 training organization in the fields of energy, transport and the environment.
 
 ## Documentation
-    
-Complete API documentation for all supported languages is available here:
-[https://ifpen.github.io/AllotropeSimpleModelsClassGeneration/](https://ifpen.github.io/AllotropeSimpleModelsClassGeneration/)
+
+Each package page on its registry shows the package README (installation and usage), and
+the model documentation ships with the packages, so IDEs show it. Links for the GC package
+(the other modules are `commons`, `dsc` and `hplc`; `Commons`, `Dsc` and `Hplc` on NuGet):
+
+| Language | Package page | API documentation |
+|---|---|---|
+| Java | [Maven Central](https://central.sonatype.com/artifact/fr.ifpen.allotropeconverters/allotrope-models-gc) | [javadoc.io](https://javadoc.io/doc/fr.ifpen.allotropeconverters/allotrope-models-gc) |
+| C# | [NuGet](https://www.nuget.org/packages/IFPEN.AllotropeConverters.AllotropeModels.Gc) | XML documentation file in the package |
+| TypeScript | [npm](https://www.npmjs.com/package/@ifpen/allotrope-models-gc) | Doc comments in the `.d.ts` declarations |
+| Python | [PyPI](https://pypi.org/project/ifpen-allotrope-models-gc/) | Docstrings in the package |
 
 ## Philosophy
 
