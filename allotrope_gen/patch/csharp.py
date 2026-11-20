@@ -12,6 +12,9 @@ no longer has the expected shape.
 Function                            Problem fixed
 ==================================  =======================================================
 :func:`add_package_reference`       Spec projects must reference the commons NuGet package.
+:func:`describe_package`            The generated README documents an HTTP client and is
+                                    not packed; NuGet showed "A library generated from a
+                                    OpenAPI doc".
 :func:`add_commons_registry`        Spec serializer options need the converters of every
                                     commons model: commons gets ``CommonsJsonConverters``.
 :func:`register_commons_converters` Spec ``HostConfiguration`` calls
@@ -42,6 +45,8 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from ..config import REPOSITORY_URL
+from ..readme import PackageReadme
 from .common import PatchError, lower_camel, render_template, replace_exact, report, write_text
 
 # ---------------------------------------------------------------------------
@@ -108,6 +113,47 @@ def add_package_reference(output_dir: Path, package_id: str, version: str, dry_r
             continue
         ET.SubElement(ET.SubElement(root, "ItemGroup"), "PackageReference", Include=package_id, Version=version)
         report("csproj patch", f"added PackageReference {package_id} {version}")
+        if not dry_run:
+            tree.write(csproj, encoding="utf-8", xml_declaration=False)
+
+
+def describe_package(output_dir: Path, readme: PackageReadme, dry_run: bool = False) -> None:
+    """Pack the package README and set the NuGet metadata (idempotent).
+
+    Writes ``README.md`` at the output root and in each project (replacing
+    the generated HTTP-client READMEs), packs it as ``PackageReadmeFile``,
+    and sets ``Description``, ``AssemblyTitle``, ``PackageTags``,
+    ``PackageProjectUrl`` and ``PackageReleaseNotes``.
+
+    Args:
+        output_dir: Generated C# output directory.
+        readme:     README, summary and keywords of the package.
+        dry_run:    When ``True``, report but do not write.
+    """
+    write_text(output_dir / "README.md", readme.text, dry_run)
+    for csproj in [p for p in sorted(output_dir.glob("src/*/*.csproj")) if not p.stem.endswith(".Test")]:
+        write_text(csproj.parent / "README.md", readme.text, dry_run)
+        tree = ET.parse(csproj)
+        root = tree.getroot()
+        group = root.find("PropertyGroup")
+        if group is None:
+            raise PatchError(f"{csproj}: no PropertyGroup")
+        properties = {
+            "Description": readme.summary,
+            "AssemblyTitle": csproj.stem,
+            "PackageTags": ";".join(readme.keywords),
+            "PackageProjectUrl": REPOSITORY_URL,
+            "PackageReleaseNotes": f"{REPOSITORY_URL}/releases",
+            "PackageReadmeFile": "README.md",
+        }
+        for tag, value in properties.items():
+            element = group.find(tag)
+            if element is None:
+                element = ET.SubElement(group, tag)
+            element.text = value
+        if not any(item.get("Include") == "README.md" for item in root.iter("None")):
+            ET.SubElement(ET.SubElement(root, "ItemGroup"), "None", Include="README.md", Pack="true", PackagePath="\\")
+        report("csproj patch", "README packed, package metadata set")
         if not dry_run:
             tree.write(csproj, encoding="utf-8", xml_declaration=False)
 

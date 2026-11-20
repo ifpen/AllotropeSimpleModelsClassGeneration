@@ -411,3 +411,45 @@ def primitive_unions(schemas: dict[str, dict]) -> list[str]:
         and sum(map(is_primitive, branches)) == 1
         and any(map(is_object, branches))
     )
+
+
+ASM_MANIFEST = "$asm.manifest"
+
+
+def root_schema(schemas: dict[str, dict]) -> tuple[str, dict]:
+    """Return ``(class name, schema)`` of the ASM document root of a spec.
+
+    The root is the only schema declaring the ``$asm.manifest`` member; its
+    class name is the schema name with an upper-case first letter, as the
+    generators emit it (``liquidChromatographySimpleModel`` becomes
+    ``LiquidChromatographySimpleModel``).
+
+    Raises:
+        ValueError: If not exactly one schema declares ``$asm.manifest``.
+    """
+    roots = [
+        (name, schema) for name, schema in schemas.items()
+        if isinstance(schema, dict) and ASM_MANIFEST in (schema.get("properties") or {})
+    ]
+    if len(roots) != 1:
+        raise ValueError(f"expected one schema declaring {ASM_MANIFEST}, found {[n for n, _ in roots]}")
+    name, schema = roots[0]
+    return name[:1].upper() + name[1:], schema
+
+
+def technique_documents(schemas: dict[str, dict]) -> tuple[str, str]:
+    """Return the JSON names of the root aggregate document and its document list.
+
+    Every ASM technique document has the shape ``{"<technique> aggregate
+    document": {"<technique> document": [...]}}``, e.g. ``"liquid
+    chromatography aggregate document"`` / ``"liquid chromatography
+    document"``.
+
+    Raises:
+        ValueError: If the root has no such aggregate document.
+    """
+    _, root = root_schema(schemas)
+    aggregates = [name for name in root.get("properties", {}) if name.endswith(" aggregate document")]
+    if len(aggregates) != 1:
+        raise ValueError(f"expected one root aggregate document, found {aggregates}")
+    return aggregates[0], aggregates[0].replace(" aggregate document", " document")

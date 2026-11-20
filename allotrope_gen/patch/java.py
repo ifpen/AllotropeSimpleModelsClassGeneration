@@ -6,6 +6,9 @@ Java (Maven) patches.
   deployment requires.
 * :func:`add_dependency` — spec outputs.  Spec packages use the commons
   classes (import/schema mappings), so they declare the commons artifact.
+* :func:`describe_package` — every Java output.  Replaces the generated
+  HTTP-client README and sets the POM ``<description>`` shown by Maven
+  Central (which does not display READMEs).
 
 Java needs no code patch: Jackson reads and writes the ASM ``"NaN"`` string
 for ``Double`` and serializes ``oneOf`` primitive/object unions natively.
@@ -20,7 +23,8 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .common import report
+from ..readme import PackageReadme
+from .common import report, write_text
 
 MAVEN_NS = "http://maven.apache.org/POM/4.0.0"
 CENTRAL_PLUGIN_GROUP = "org.sonatype.central"
@@ -112,4 +116,22 @@ def add_dependency(pom_path: Path, group_id: str, artifact_id: str, version: str
     ET.SubElement(dependency, _q("artifactId")).text = artifact_id
     ET.SubElement(dependency, _q("version")).text = version
     report("pom patch", f"added dependency {group_id}:{artifact_id}:{version}")
+    _write(tree, pom_path, dry_run)
+
+
+def describe_package(output_dir: Path, readme: PackageReadme, dry_run: bool = False) -> None:
+    """Write ``README.md`` and the POM ``<description>`` (idempotent).
+
+    Args:
+        output_dir: Generated Java output directory.
+        readme:     README and summary of the package.
+        dry_run:    When ``True``, report but do not write.
+    """
+    write_text(output_dir / "README.md", readme.text, dry_run)
+    pom_path = output_dir / "pom.xml"
+    tree = _parse(pom_path)
+    if tree is None:
+        return
+    _find_or_create(tree.getroot(), "description").text = readme.summary
+    report("pom patch", "README and description set")
     _write(tree, pom_path, dry_run)

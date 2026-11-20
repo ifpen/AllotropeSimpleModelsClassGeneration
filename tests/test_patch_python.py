@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import ast
+import tomllib
 from pathlib import Path
 
 import pytest
 
-from allotrope_gen.patch import PatchError
-from allotrope_gen.patch.python import allow_nan_strings, depend_on_commons
+from allotrope_gen.patch import PackageReadme, PatchError
+from allotrope_gen.patch.python import allow_nan_strings, depend_on_commons, describe_package
 
 NAN = {"SecondsQuantityValue": ["value"]}
 
@@ -120,3 +122,45 @@ class TestAllowNanStrings:
         module.write_text(module.read_text(encoding="utf-8").replace("StrictInt", "StrictStr"), encoding="utf-8")
         with pytest.raises(PatchError):
             allow_nan_strings(tmp_path, "pkg", NAN)
+
+
+class TestDescribePackage:
+    PYPROJECT = (
+        '[project]\nname = "ifpen.allotrope_models.gc"\nversion = "2026.9.0"\n'
+        'description = "ASM Gas-Chromatography Schemas"\nauthors = [\n'
+        '  {name = "OpenAPI Generator Community",email = "team@openapitools.org"},\n]\n'
+        'readme = "README.md"\nkeywords = ["OpenAPI", "OpenAPI-Generator", "ASM Gas-Chromatography Schemas"]\n'
+    )
+    SETUP = (
+        "setup(\n    name=NAME,\n    version=VERSION,\n"
+        '    description="ASM Gas-Chromatography Schemas",\n'
+        '    author="OpenAPI Generator community",\n    author_email="team@openapitools.org",\n'
+        '    url="https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",\n'
+        '    keywords=["OpenAPI", "OpenAPI-Generator", "ASM Gas-Chromatography Schemas"],\n'
+        "    long_description_content_type='text/markdown',\n"
+        '    long_description="""\\\n    These schemas allow to read and write ASM.\n\n    More text.\n    """,  # noqa: E501\n'
+        ")\n"
+    )
+
+    def test_metadata(self, tmp_path: Path):
+        (tmp_path / "pyproject.toml").write_text(self.PYPROJECT, encoding="utf-8")
+        (tmp_path / "setup.py").write_text(self.SETUP, encoding="utf-8")
+        readme = PackageReadme("# GC\n", 'GC "models".', ("asm", "gc"))
+        describe_package(tmp_path, readme)
+        describe_package(tmp_path, readme)  # idempotent
+        project = tomllib.loads((tmp_path / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        assert project["description"] == 'GC "models".'
+        assert project["authors"] == [{"name": "Maxime Visconte", "email": "maxime.visconte@ifpen.fr"}]
+        assert project["keywords"] == ["asm", "gc"]
+        setup = (tmp_path / "setup.py").read_text(encoding="utf-8")
+        ast.parse(setup)
+        assert "description='GC \"models\".'," in setup
+        assert "    author='Maxime Visconte',\n" in setup
+        assert 'long_description=open("README.md", encoding="utf-8").read(),' in setup
+        assert "OpenAPI" not in setup.replace("text/markdown", "")
+        assert (tmp_path / "README.md").read_text(encoding="utf-8") == "# GC\n"
+
+    def test_unexpected_shape_fails(self, tmp_path: Path):
+        (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+        with pytest.raises(PatchError):
+            describe_package(tmp_path, PackageReadme("# x\n", "x", ()))

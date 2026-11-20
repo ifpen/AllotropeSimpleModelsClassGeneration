@@ -270,6 +270,12 @@ class LanguageConfig:
 #: publishing checks the npm ``repository`` URL against the publishing repo.
 _GIT_REPOSITORY = {"gitUserId": "ifpen", "gitRepoId": "AllotropeSimpleModelsClassGeneration"}
 
+#: Package metadata shared by every registry (README patches use it too).
+REPOSITORY_URL = "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration"
+PACKAGE_AUTHOR = "Maxime Visconte"
+PACKAGE_AUTHOR_EMAIL = "maxime.visconte@ifpen.fr"
+PACKAGE_KEYWORDS = ("allotrope", "asm", "allotrope-simple-model", "laboratory-data", "chemistry")
+
 LANGUAGES: dict[str, LanguageConfig] = {
     "java": LanguageConfig(
         generator="java",
@@ -285,16 +291,16 @@ LANGUAGES: dict[str, LanguageConfig] = {
             "groupId":                  "fr.ifpen.allotropeconverters",
             "artifactId":               "allotrope-models-{module}",
             "artifactDescription":      "Allotrope Simple Model (ASM) classes: {module}",
-            "artifactUrl":              "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
+            "artifactUrl":              REPOSITORY_URL,
             "licenseName":              "CeCILL, version 2.1",
             "licenseUrl":               "https://opensource.org/license/cecill-2-1/",
-            "developerName":            "Maxime Visconte",
-            "developerEmail":           "maxime.visconte@ifpen.fr",
+            "developerName":            PACKAGE_AUTHOR,
+            "developerEmail":           PACKAGE_AUTHOR_EMAIL,
             "developerOrganization":    "IFPEN",
             "developerOrganizationUrl": "https://www.ifpenergiesnouvelles.com/",
             "scmConnection":            "scm:git:git://github.com/ifpen/AllotropeSimpleModelsClassGeneration.git",
             "scmDeveloperConnection":   "scm:git:ssh://github.com/ifpen/AllotropeSimpleModelsClassGeneration.git",
-            "scmUrl":                   "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
+            "scmUrl":                   REPOSITORY_URL,
             "serializationLibrary":     "jackson",
             # By default the invoker package is the parent of modelPackage,
             # which for instrument specs is the commons model package: both
@@ -342,9 +348,8 @@ LANGUAGES: dict[str, LanguageConfig] = {
             "netCoreProjectFile": "true",
             "targetFramework":    "netstandard2.0;net48",
             "licenseId":          "CECILL-2.1",
-            "packageAuthors":     "Maxime Visconte",
+            "packageAuthors":     PACKAGE_AUTHOR,
             "packageCompany":     "IFPEN",
-            "packageTags":        "allotrope;models;chemistry;lab;data",
             "packageCopyright":   "Copyright \u00a9 2026 IFP Energies nouvelles (IFPEN)",
         },
         extra_opts=["--skip-validate-spec"],
@@ -361,7 +366,7 @@ LANGUAGES: dict[str, LanguageConfig] = {
         package_fn=python_package,
         # The Python generator never emits ``import`` statements for mapped
         # schemas.  Map commons schemas to their bare class names;
-        # :func:`~allotrope_gen.patch.patch_python_package` then adds
+        # :func:`~allotrope_gen.patch.python.depend_on_commons` then adds
         # ``from ifpen.allotrope_models import <Class>`` where they are used.
         commons_package=python_package(""),
         import_pattern="{class_name}={class_name}",
@@ -369,9 +374,9 @@ LANGUAGES: dict[str, LanguageConfig] = {
         extra_props={
             **_GIT_REPOSITORY,
             "packageVersion": "{pep440}",
-            "packageUrl":     "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration",
-            "packageAuthor":  "Maxime Visconte",
-            "packageEmail":   "maxime.visconte@ifpen.fr",
+            "packageUrl":     REPOSITORY_URL,
+            "packageAuthor":  PACKAGE_AUTHOR,
+            "packageEmail":   PACKAGE_AUTHOR_EMAIL,
             "licenseName":    "CeCILL, version 2.1",
         },
         extra_opts=["--skip-validate-spec"],

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from allotrope_gen.patch import PackageReadme
 from allotrope_gen.patch.java import (
     CENTRAL_PLUGIN_ARTIFACT,
     CENTRAL_PLUGIN_GROUP,
@@ -14,6 +15,7 @@ from allotrope_gen.patch.java import (
     MAVEN_NS,
     add_central_publishing_plugin,
     add_dependency,
+    describe_package,
 )
 
 NS = {"m": MAVEN_NS}
@@ -87,3 +89,14 @@ class TestAddDependency:
         before = pom.read_text(encoding="utf-8")
         add_dependency(pom, "g", "a", "1", dry_run=True)
         assert pom.read_text(encoding="utf-8") == before
+
+
+class TestDescribePackage:
+    def test_readme_and_description(self, tmp_path: Path):
+        pom = _pom(tmp_path / "pom.xml")
+        readme = PackageReadme("# GC\n", "GC models.", ("asm",))
+        describe_package(tmp_path, readme)
+        describe_package(tmp_path, readme)  # idempotent
+        root = ET.parse(pom).getroot()
+        assert [d.text for d in root.findall("m:description", NS)] == ["GC models."]
+        assert (tmp_path / "README.md").read_text(encoding="utf-8") == "# GC\n"

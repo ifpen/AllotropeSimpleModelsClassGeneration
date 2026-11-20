@@ -6,15 +6,17 @@ exact indentation the patches anchor on.
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
-from allotrope_gen.patch import PatchError
+from allotrope_gen.patch import PackageReadme, PatchError
 from allotrope_gen.patch.csharp import (
     PROVIDER_ANCHOR,
     add_commons_registry,
     add_package_reference,
+    describe_package,
     guard_optional_enum_writes,
     keep_additional_properties,
     patch_doubles,
@@ -322,3 +324,33 @@ class TestPatchPrimitiveUnions:
         source.write_text(UNION.replace("JsonConverter<DateTimeStampValue>", "JsonConverter<Other>"), encoding="utf-8")
         with pytest.raises(PatchError):
             patch_primitive_unions(tmp_path, ["DateTimeStampValue"])
+
+
+class TestDescribePackage:
+    CSPROJ = (
+        '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n'
+        "    <AssemblyTitle>OpenAPI Library</AssemblyTitle>\n"
+        "    <Description>A library generated from a OpenAPI doc</Description>\n"
+        "    <PackageReleaseNotes>Minor update</PackageReleaseNotes>\n"
+        "  </PropertyGroup>\n</Project>\n"
+    )
+
+    def test_packs_readme_and_sets_metadata(self, tmp_path: Path):
+        for name in ("Lib", "Lib.Test"):
+            (tmp_path / "src" / name).mkdir(parents=True)
+            (tmp_path / "src" / name / f"{name}.csproj").write_text(self.CSPROJ, encoding="utf-8")
+        readme = PackageReadme("# Lib\n", "Lib models.", ("asm", "gc"))
+        describe_package(tmp_path, readme)
+        describe_package(tmp_path, readme)  # idempotent
+        root = ET.parse(tmp_path / "src/Lib/Lib.csproj").getroot()
+        group = root.find("PropertyGroup")
+        assert group.findtext("Description") == "Lib models."
+        assert group.findtext("AssemblyTitle") == "Lib"
+        assert group.findtext("PackageTags") == "asm;gc"
+        assert group.findtext("PackageReadmeFile") == "README.md"
+        assert group.findtext("PackageReleaseNotes").endswith("/releases")
+        packed = [n.attrib for n in root.iter("None")]
+        assert packed == [{"Include": "README.md", "Pack": "true", "PackagePath": "\\"}]
+        assert (tmp_path / "README.md").read_text(encoding="utf-8") == "# Lib\n"
+        assert (tmp_path / "src/Lib/README.md").read_text(encoding="utf-8") == "# Lib\n"
+        assert "Lib models." not in (tmp_path / "src/Lib.Test/Lib.Test.csproj").read_text(encoding="utf-8")

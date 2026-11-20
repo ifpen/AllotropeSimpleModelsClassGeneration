@@ -8,6 +8,9 @@ TypeScript (``typescript-angular``) patches.
   unavailable quantity as the JSON string ``"NaN"``; the generated
   ``value: number`` becomes ``value: number | 'NaN'`` so such documents
   type-check.
+* :func:`describe_package` — every TypeScript output.  The generated README
+  (the npm page) documents an Angular HTTP client, and ``package.json``
+  describes an "OpenAPI client" by "OpenAPI-Generator Contributors".
 
 ``oneOf`` primitive/object unions need no patch: the generator emits a
 TypeScript union type.
@@ -20,6 +23,8 @@ import re
 import sys
 from pathlib import Path
 
+from ..config import PACKAGE_AUTHOR, REPOSITORY_URL
+from ..readme import PackageReadme
 from .common import lower_camel, replace_exact, report, write_text
 
 
@@ -70,3 +75,39 @@ def allow_nan_strings(output_dir: Path, nan_properties: dict[str, list[str]], dr
         patched += 1
         write_text(source, text, dry_run)
     report("nan patch", f"typescript: {patched} interface(s) accept the ASM \"NaN\" string")
+
+
+def describe_package(output_dir: Path, readme: PackageReadme, dry_run: bool = False) -> None:
+    """Write ``README.md`` and the ``package.json`` metadata (idempotent).
+
+    ng-packagr builds the published package into ``dist/``; ``README.md`` is
+    listed in the ``ng-package.json`` assets so it is copied there.
+
+    Args:
+        output_dir: Generated TypeScript output directory.
+        readme:     README, summary and keywords of the package.
+        dry_run:    When ``True``, report but do not write.
+    """
+    write_text(output_dir / "README.md", readme.text, dry_run)
+    package_json = output_dir / "package.json"
+    if not package_json.exists():
+        print(f"[WARN] package.json not found, skipping patch: {package_json}", file=sys.stderr)
+        return
+    manifest = json.loads(package_json.read_text(encoding="utf-8"))
+    manifest.update(
+        description=readme.summary,
+        author=PACKAGE_AUTHOR,
+        keywords=list(readme.keywords),
+        homepage=REPOSITORY_URL,
+        bugs={"url": f"{REPOSITORY_URL}/issues"},
+    )
+    write_text(package_json, json.dumps(manifest, indent=2) + "\n", dry_run)
+
+    ng_package = output_dir / "ng-package.json"
+    if ng_package.exists():
+        config = json.loads(ng_package.read_text(encoding="utf-8"))
+        assets = config.setdefault("assets", [])
+        if "README.md" not in assets:
+            assets.append("README.md")
+        write_text(ng_package, json.dumps(config, indent=2) + "\n", dry_run)
+    report("package.json patch", "README and package metadata set")
