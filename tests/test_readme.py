@@ -39,7 +39,7 @@ def test_spec_readme_content():
 @pytest.mark.parametrize("lang, expected", [
     ("java", "document.getGasChromatographyAggregateDocument().getGasChromatographyDocument().size()"),
     ("python", "len(document.gas_chromatography_aggregate_document.gas_chromatography_document)"),
-    ("typescript-angular",
+    ("typescript",
      "document['gas chromatography aggregate document']?.['gas chromatography document']?.length"),
 ])
 def test_navigation_per_language(lang: str, expected: str):
@@ -50,7 +50,7 @@ def test_navigation_per_language(lang: str, expected: str):
     ("java", "2026.09.0-beta3"),
     ("csharp", "2026.9.0-beta.3"),
     ("python", "2026.9.0b3"),
-    ("typescript-angular", "2026.9.0-beta.3"),
+    ("typescript", "2026.9.0-beta.3"),
 ])
 def test_prerelease_versions(lang: str, version: str):
     text = render(lang, "dsc", "beta.3").text
@@ -59,9 +59,16 @@ def test_prerelease_versions(lang: str, version: str):
 
 
 def test_npm_installs_commons_peer():
-    text = render("typescript-angular", "gc").text
+    text = render("typescript", "gc").text
     assert "npm install @ifpen/allotrope-models-gc@2026.9.0 @ifpen/allotrope-models-commons@2026.9.0" in text
     assert "peer dependency" in text
+
+
+def test_npm_readme_describes_models_only_esm_package():
+    text = render("typescript", "gc").text
+    assert "no client code and no runtime dependency" in text
+    assert "| Requires | ES module: a bundler, or Node.js 20.19+ |" in text
+    assert "Angular" not in text
 
 
 def test_commons_readme_points_to_techniques():

@@ -93,7 +93,7 @@ class TestNpmPackage:
 
 class TestLanguageConfig:
     def test_all_languages_registered(self):
-        expected = {"java", "typescript-angular", "csharp", "python"}
+        expected = {"java", "typescript", "csharp", "python"}
         assert set(LANGUAGES.keys()) == expected
 
     @pytest.mark.parametrize("lang", list(LANGUAGES))
@@ -168,9 +168,9 @@ class TestSpecs:
             class_name="QuantityValue",
             commons_package=LANGUAGES["java"].commons_package,
         ) == "QuantityValue=fr.ifpen.allotropeconverters.allotrope_models.QuantityValue"
-        assert LANGUAGES["typescript-angular"].import_pattern.format(
+        assert LANGUAGES["typescript"].import_pattern.format(
             class_name="QuantityValue",
-            commons_package=LANGUAGES["typescript-angular"].commons_package,
+            commons_package=LANGUAGES["typescript"].commons_package,
         ) == "QuantityValue=@ifpen/allotrope-models-commons"
         assert LANGUAGES["csharp"].import_pattern.format(
             class_name="QuantityValue",
@@ -324,7 +324,7 @@ def test_npm_peer_dependency_range_is_strict_semver():
     """npm rejects zero-padded versions such as ``2026.09.0`` as a range."""
     from allotrope_gen.config import LANGUAGES, npm_semver
     assert npm_semver("2026.09.0") == "2026.9.0"
-    assert LANGUAGES["typescript-angular"].commons_version == "{semver}"
+    assert LANGUAGES["typescript"].commons_version == "{semver}"
 
 
 class TestVersionPlaceholders:
@@ -361,7 +361,7 @@ class TestVersionPlaceholders:
             assert str(parsed) == pep440 and parsed.is_prerelease
 
 
-@pytest.mark.parametrize("lang", ["java", "typescript-angular", "csharp", "python"])
+@pytest.mark.parametrize("lang", ["java", "typescript", "csharp", "python"])
 def test_packages_point_to_the_real_repository(lang):
     """npm trusted publishing rejects packages whose repository URL is not the publisher's."""
     from allotrope_gen.config import LANGUAGES

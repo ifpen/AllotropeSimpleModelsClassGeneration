@@ -116,8 +116,9 @@ prepare (plan) ──► generate ──► publish-java        (matrix: commons
   (0.12.0, `autoPublish`). Spec modules first `mvn install` the commons module of the
   artifact. The job waits until Central has *validated* the bundle; publication to
   `repo1.maven.org` follows asynchronously.
-- **publish-npm-commons / -specs**: `npm stage publish ./dist --access public --tag <tag>`
-  (tag `latest`, or `alpha`/`beta`/`rc` for pre-releases). Spec jobs build and pack the
+- **publish-npm-commons / -specs**: `tsc` builds `dist/`, then `npm stage publish . --access
+  public --tag <tag>` from the package root (`files`: `dist/`; tag `latest`, or
+  `alpha`/`beta`/`rc` for pre-releases). Spec jobs build and pack the
   commons of the artifact to satisfy their peer dependency, because a *staged* commons is not
   installable from the registry.
 - **publish-nuget**: `NuGet/login` exchanges the job's OIDC token for a short-lived API key;

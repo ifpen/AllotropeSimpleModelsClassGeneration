@@ -270,6 +270,11 @@ class LanguageConfig:
 #: publishing checks the npm ``repository`` URL against the publishing repo.
 _GIT_REPOSITORY = {"gitUserId": "ifpen", "gitRepoId": "AllotropeSimpleModelsClassGeneration"}
 
+#: TypeScript compiler that builds the npm packages: the only devDependency
+#: of a generated package (docs/adr/0002).  ``verify_deserialization.py``
+#: type-checks consumers with the same version.
+TYPESCRIPT_VERSION = "~5.9.3"
+
 #: Package metadata shared by every registry (README patches use it too).
 REPOSITORY_URL = "https://github.com/ifpen/AllotropeSimpleModelsClassGeneration"
 PACKAGE_AUTHOR = "Maxime Visconte"
@@ -311,7 +316,10 @@ LANGUAGES: dict[str, LanguageConfig] = {
         extra_opts=["--skip-validate-spec"],
         publish_cmd="mvn --batch-mode deploy",
     ),
-    "typescript-angular": LanguageConfig(
+    # npm packages contain only the models: typescript-angular keeps the
+    # published interfaces, and the Angular runtime it emits is stripped
+    # after generation (docs/adr/0001, typescript.keep_models_only).
+    "typescript": LanguageConfig(
         generator="typescript-angular",
         output_subdir="typescript",
         # TypeScript import-mappings map a schema name to an npm package name,
@@ -325,7 +333,6 @@ LANGUAGES: dict[str, LanguageConfig] = {
         extra_props={
             **_GIT_REPOSITORY,
             "npmVersion":  "{semver}",
-            "ngVersion":   "19.0.0",
             "licenseName": "CeCILL, version 2.1",
         },
         # ``uniqueItems`` arrays would otherwise be typed as ``Set<T>``, but

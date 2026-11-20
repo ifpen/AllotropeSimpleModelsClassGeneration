@@ -10,7 +10,7 @@ libraries in four languages:
 | Language | Package registry | Package naming | Commons package |
 |---|---|---|---|
 | Java | Maven Central | `fr.ifpen.allotropeconverters:allotrope-models-{spec}` | `allotrope-models-commons` |
-| TypeScript (Angular) | npm | `@ifpen/allotrope-models-{spec}` | `@ifpen/allotrope-models-commons` |
+| TypeScript | npm | `@ifpen/allotrope-models-{spec}` | `@ifpen/allotrope-models-commons` |
 | C# | NuGet | `IFPEN.AllotropeConverters.AllotropeModels.{Spec}` | `IFPEN.AllotropeConverters.AllotropeModels.Commons` |
 | Python | PyPI | `ifpen.allotrope_models.{spec}` | `ifpen.allotrope_models` |
 
@@ -38,6 +38,7 @@ AllotropeSimpleModelsClassGeneration/
 ├── verify_builds.py               # Builds generated clients (commons first, local feeds)
 ├── verify_deserialization.py      # Round-trips official ASM examples in every client
 ├── PUBLISHING.md                  # Release procedure, registry setup, troubleshooting
+├── docs/adr/                      # Architecture decision records (why, not how)
 ├── .mise.toml                     # Pinned project toolchain for Docker Sandbox
 ├── sbxenv.yaml                    # Docker Sandbox OpenCode environment
 ├── .sandbox/mise-network/          # Project-specific tool-download egress policy
@@ -55,8 +56,8 @@ AllotropeSimpleModelsClassGeneration/
 │   │   ├── java.py                # Central publishing plugin, commons dependency
 │   │   ├── csharp.py              # Converter fixes, commons registry, doubles, unions
 │   │   ├── python.py              # Commons imports/packaging, NaN AsmDouble
-│   │   ├── typescript.py          # Commons peer dependency, NaN type
-│   │   └── templates/             # Source files added to generated code (.cs, .py)
+│   │   ├── typescript.py          # Models-only ESM package, commons peer dependency, NaN type
+│   │   └── templates/             # Files added to generated code (.cs, .py, tsconfig.json)
 │   ├── pipeline.py                # Command subprocess execution pipeline
 │   ├── readme/                    # README + registry description of every package
 │   │   ├── __init__.py            # render(lang, module): derived from specs and config
@@ -79,7 +80,7 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── test_patch_java.py         # Java POM patches
 │   ├── test_patch_csharp.py       # C# converter, double and union patches
 │   ├── test_patch_python.py       # Python commons dependency and NaN patches
-│   ├── test_patch_typescript.py   # npm peer dependency and NaN patches
+│   ├── test_patch_typescript.py   # npm models-only, peer dependency and NaN patches
 │   ├── test_readme.py             # Generated package READMEs
 │   ├── test_pipeline.py           # Pipeline runner tests
 │   ├── test_schema.py             # Schema collision and extraction tests
@@ -285,10 +286,15 @@ gc.yaml ────────┤─ bundle_spec()  → target/bundled-specs/g
    shape, and add source files from `allotrope_gen/patch/templates/`. In short:
    - every package: the generated README (written for an HTTP API client) is replaced by
      one rendered by `allotrope_gen/readme/`, and the registry metadata is set: NuGet packs
-     it (`PackageReadmeFile`) with `Description`, tags and project URL; npm copies it into
-     `dist/` and gets description, author and keywords; PyPI uses it as long description
+     it (`PackageReadmeFile`) with `Description`, tags and project URL; npm publishes it
+     from the package root with description, author and keywords; PyPI uses it as long description
      with author and keywords; Maven gets the POM `<description>`;
    - Java: `central-publishing-maven-plugin` (Maven Central) and the commons dependency;
+   - TypeScript: npm packages contain only the models. The Angular runtime that
+     `typescript-angular` emits is removed, relative imports get `.js`, and the package is an
+     ES module built by `tsc` (`TYPESCRIPT_VERSION` in `config.py`, its only devDependency)
+     with no Angular or RxJS dependency. The generator is kept because it emits the published
+     interfaces; see `docs/adr/0001-…` and `docs/adr/0002-…` (issue #16);
    - commons dependency of spec packages (NuGet `PackageReference`, npm peer dependency,
      Python requirement plus imports; the spec's parent `__init__.py` files are removed);
    - properties marked `x-asm-nan: true` (`QuantityValue.value` and its unit wrappers) accept
@@ -306,7 +312,9 @@ gc.yaml ────────┤─ bundle_spec()  → target/bundled-specs/g
    effect in `verify_deserialization.py` when the official examples do not.
 
 Validate the result with `python verify_deserialization.py`: every spec/language pair must
-round-trip the official REC examples losslessly (TypeScript: strict `satisfies` type-check).
+round-trip the official REC examples losslessly (TypeScript: the packed packages are installed
+in a consumer without Angular, strict `satisfies` type-check under `bundler` and `nodenext`
+resolution, and an enum constant loaded through `import` and `require`).
 `SYNTHETIC_VARIANTS` add modified copies of the first example for constructs the official
 examples never use (NaN quantity, named diagnostic data cubes, both forms of the
 primitive/object unions).
@@ -570,6 +578,11 @@ specifications are modeled. They complement (but do not override) the orchestrat
   npm pages documented an HTTP client with "OpenAPI Generator" as author, and NuGet had no
   README. Check a packed artifact (`.nupkg`, wheel `METADATA`, npm `dist/`) after changing
   package metadata; `publish_docs.yml` is not a source of package documentation.
+- 2026-11-20 - `typescript-angular` emits an Angular HTTP client even for a spec without
+  paths, so the npm packages required `@angular/core` and `rxjs` although their models import
+  neither (issue #16). Check what a package's *built* output imports and depends on, not
+  only its model files. The models are not types only: each enum is also a runtime constant
+  (`SecondsQuantityValue.UnitEnum.S`) that consumers use.
 
 ## License
 

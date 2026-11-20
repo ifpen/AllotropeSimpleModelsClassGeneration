@@ -97,17 +97,18 @@ _LANGUAGES: dict[str, _Language] = {
         extra="`additional_properties`",
         platform="| Requires | Python 3.9+ |\n",
     ),
-    "typescript-angular": _Language(
+    "typescript": _Language(
         name="TypeScript",
         registry="npm",
         kinds="interfaces",
         nan="the string `'NaN'` (the value type is `number | 'NaN'`)",
         extra="the extra keys of `DiagnosticTraceDocument`",
+        platform="| Requires | ES module: a bundler, or Node.js 20.19+ |\n",
     ),
 }
 
 #: Column order of the package matrix.
-_MATRIX_ORDER = ("java", "csharp", "python", "typescript-angular")
+_MATRIX_ORDER = ("java", "csharp", "python", "typescript")
 
 
 def _template(name: str, **values: str) -> str:
@@ -258,7 +259,7 @@ def render(lang: str, module: str, prerelease: str | None = None) -> PackageRead
         "java_documents": _accessor("java", documents),
         "csharp_documents": _accessor("csharp", documents),
         "python_documents": _accessor("python", documents),
-        "typescript_documents": _accessor("typescript-angular", documents),
+        "typescript_documents": _accessor("typescript", documents),
         "naming": _naming(lang, documents[0]),
     }
     values["install"] = _template(f"install.{lang}.md", **values)
@@ -269,7 +270,7 @@ def render(lang: str, module: str, prerelease: str | None = None) -> PackageRead
 
 def _naming(lang: str, json_name: str) -> str:
     """Explain how ASM JSON member names map to *lang* identifiers."""
-    if lang == "typescript-angular":
+    if lang == "typescript":
         return f"Interface members keep the ASM JSON names: `document['{json_name}']`."
     accessor = _accessor(lang, [json_name])
     return f"Members follow the ASM JSON names: `\"{json_name}\"` is `{accessor}`."

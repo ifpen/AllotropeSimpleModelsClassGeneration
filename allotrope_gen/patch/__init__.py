@@ -18,6 +18,11 @@ Problem                  Where       Patch per language
 Maven Central needs      commons +   Java: :func:`java.add_central_publishing_plugin`
 the publishing plugin    specs
 -----------------------  ----------  --------------------------------------------------------
+npm packages require     commons +   TypeScript: :func:`typescript.keep_models_only`
+Angular: the generator   specs       (issue #16, ``docs/adr/0001`` and ``0002``)
+emits an HTTP client
+next to the models
+-----------------------  ----------  --------------------------------------------------------
 Generated READMEs and    commons +   Java: :func:`java.describe_package`;
 registry metadata        specs       C#: :func:`csharp.describe_package`;
 describe an HTTP                     Python: :func:`python.describe_package`;
@@ -157,6 +162,7 @@ def patch_commons_output(
     elif generator == "python":
         python.allow_nan_strings(output_dir, namespace, targets.nan_properties, dry_run)
     elif generator == "typescript-angular":
+        typescript.keep_models_only(output_dir, dry_run)
         typescript.allow_nan_strings(output_dir, targets.nan_properties, dry_run)
 
 
@@ -201,6 +207,7 @@ def patch_spec_output(
             python.depend_on_commons(output_dir, package, commons.name, commons.version, set(commons.schemas), dry_run)
         python.allow_nan_strings(output_dir, package, targets.nan_properties, dry_run)
     elif generator == "typescript-angular":
+        typescript.keep_models_only(output_dir, dry_run)
         if commons:
             typescript.add_peer_dependency(output_dir / "package.json", commons.name, commons.version, dry_run)
         typescript.allow_nan_strings(output_dir, targets.nan_properties, dry_run)

@@ -134,7 +134,7 @@ class TestBuildImportMappings:
         assert len(parts) == 2
 
     def test_typescript_pattern_no_class_suffix(self):
-        cfg = LANGUAGES["typescript-angular"]
+        cfg = LANGUAGES["typescript"]
         result = build_import_mappings({"Foo"}, cfg)
         # TypeScript maps class → npm package, not class → package.class
         assert "Foo=" in result
@@ -257,7 +257,7 @@ class TestCommonsMappings:
     def test_schema_mappings_default_to_import_pattern(self):
         from allotrope_gen.command import build_import_mappings, build_schema_mappings
         from allotrope_gen.config import LANGUAGES
-        for lang in ("java", "csharp", "typescript-angular", "python"):
+        for lang in ("java", "csharp", "typescript", "python"):
             cfg = LANGUAGES[lang]
             assert build_schema_mappings({"B", "A"}, cfg) == build_import_mappings({"A", "B"}, cfg)
 
@@ -280,7 +280,7 @@ class TestModuleVersions:
 
     @pytest.mark.parametrize("lang, key, expected", [
         ("java", "artifactVersion", "2026.09.0"),
-        ("typescript-angular", "npmVersion", "2026.9.0"),
+        ("typescript", "npmVersion", "2026.9.0"),
         ("csharp", "packageVersion", "2026.9.0"),
         ("python", "packageVersion", "2026.9.0"),
     ])
@@ -307,7 +307,7 @@ class TestModuleVersions:
 
     @pytest.mark.parametrize("lang, key, expected", [
         ("java", "artifactVersion", "2026.09.0-beta1"),
-        ("typescript-angular", "npmVersion", "2026.9.0-beta.1"),
+        ("typescript", "npmVersion", "2026.9.0-beta.1"),
         ("csharp", "packageVersion", "2026.9.0-beta.1"),
         ("python", "packageVersion", "2026.9.0b1"),
     ])

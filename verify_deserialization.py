@@ -16,10 +16,15 @@ For every requested spec/language pair the verifier:
      model, serialize it back to JSON, and the round-tripped document is
      compared with the original.  Any field that is dropped, altered or added
      is reported, so a model that silently ignores part of an example fails.
-   * **TypeScript (Angular)** models are interfaces without a runtime
-     deserializer, so each example is type-checked as an object literal with
-     ``satisfies <RootModel>`` under ``tsc --strict``.  Excess-property checks
-     report unknown fields, and wrong types or enum values fail compilation.
+   * **TypeScript** models are interfaces without a runtime deserializer.
+     The commons and spec packages are packed and installed into a consumer
+     project without Angular, as an npm user would install them; each example
+     is type-checked as an object literal with ``satisfies <RootModel>`` under
+     ``tsc --strict``, with both ``bundler`` and ``nodenext`` module
+     resolution.  Excess-property checks report unknown fields, and wrong
+     types or enum values fail compilation.  The consumer must not contain
+     Angular or RxJS, and an enum constant of each package must load through
+     both ``import`` and ``require`` (issue #16, ``docs/adr/0002``).
 
 Every missing example, generated module, toolchain or comparison failure is
 reported as a failed pair; nothing is skipped silently.
@@ -46,7 +51,7 @@ ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(ROOT))
 
 from allotrope_gen.asm import find_asm_repository
-from allotrope_gen.config import LANGUAGES, OUTPUT, SPECS
+from allotrope_gen.config import LANGUAGES, OUTPUT, SPECS, TYPESCRIPT_VERSION
 from allotrope_gen.schema import load_yaml, root_schema
 
 
@@ -513,12 +518,12 @@ def commons_artifact(lang: str) -> Path | None:
             artifact = feed
     elif lang == "python":
         artifact = _copy_tree(source, work / "src")
-    elif lang == "typescript-angular":
+    elif lang == "typescript":
         build = _copy_tree(source, work / "src")
         if (
             _run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"], build)
             and _run(["npm", "run", "build"], build)
-            and _run(["npm", "pack", "--pack-destination", str(work), "./dist"], build)
+            and _run(["npm", "pack", "--ignore-scripts", "--pack-destination", str(work)], build)
         ):
             artifact = next(work.glob("*.tgz"), None)
     _COMMONS[lang] = artifact
@@ -535,11 +540,6 @@ def commons_artifact(lang: str) -> Path | None:
 def _snake(value: str) -> str:
     """Convert a generated PascalCase class name to its Python module name."""
     return "".join(("_" if char.isupper() and index else "") + char.lower() for index, char in enumerate(value))
-
-
-def _camel(value: str) -> str:
-    """Convert a PascalCase class name to an Angular model filename."""
-    return value[0].lower() + value[1:]
 
 
 def _io_arguments(examples: list[Path], outputs: Path) -> list[str]:
@@ -687,9 +687,70 @@ def _verify_python(spec: str, output: Path, examples: list[Path], work: Path) ->
     ) and check_roundtrips(examples, outputs)
 
 
+#: npm packages a models-only consumer must not receive (issue #16).
+FORBIDDEN_NPM_PACKAGES = ("@angular/core", "rxjs")
+
+#: First enum constant of a generated model file:
+#: ``export namespace Peak { export const UnitEnum = { S: 's', …``.
+_TS_ENUM_CONSTANT = re.compile(
+    r"^export namespace (\w+) \{\s*export const (\w+) = \{\s*(\w+): '([^']*)'", re.MULTILINE,
+)
+
+
+def typescript_enum_constant(output: Path) -> tuple[str, str] | None:
+    """Return an enum constant of a generated TypeScript package.
+
+    Returns:
+        ``(expression, value)``, e.g. ``("Peak.UnitEnum.S", "s")``, for the
+        first enum constant of the ``model/`` files in name order, or ``None``
+        when the package has no enum.
+    """
+    for source in sorted((output / "model").glob("*.ts")):
+        match = _TS_ENUM_CONSTANT.search(source.read_text(encoding="utf-8"))
+        if match:
+            namespace, constant, member, value = match.groups()
+            return f"{namespace}.{constant}.{member}", value
+    return None
+
+
+def forbidden_npm_packages(node_modules: Path) -> list[str]:
+    """Return the :data:`FORBIDDEN_NPM_PACKAGES` installed in *node_modules*."""
+    return [name for name in FORBIDDEN_NPM_PACKAGES if (node_modules / name / "package.json").exists()]
+
+
+def _runtime_probes(consumer: Path, packages: dict[str, Path]) -> list[Path]:
+    """Write ``import`` and ``require`` probes of one enum constant per package.
+
+    Args:
+        consumer: Consumer project directory (``"type": "module"``).
+        packages: ``{npm package name: generated output directory}``.
+
+    Returns:
+        The probe scripts, to run with ``node``.
+    """
+    probes = []
+    for index, (name, output) in enumerate(packages.items()):
+        constant = typescript_enum_constant(output)
+        if constant is None:
+            continue
+        expression, value = constant
+        namespace = expression.split(".")[0]
+        check = f"if ({expression} !== {json.dumps(value)}) throw new Error('{name}: {expression}');\n"
+        esm = consumer / f"runtime-{index}.mjs"
+        esm.write_text(f"import {{ {namespace} }} from '{name}';\n{check}", encoding="utf-8")
+        cjs = consumer / f"runtime-{index}.cjs"
+        cjs.write_text(f"const {{ {namespace} }} = require('{name}');\n{check}", encoding="utf-8")
+        probes += [esm, cjs]
+    return probes
+
+
 def _verify_typescript(spec: str, output: Path, examples: list[Path], work: Path) -> bool:
-    """Build the Angular library against commons and type-check each example."""
-    tarball = commons_artifact("typescript-angular")
+    """Install commons and the spec package in a consumer and type-check each example.
+
+    The consumer installs the packed packages like an npm user, so the
+    published ``exports``, declarations and dependencies are what is tested.
+    """
+    tarball = commons_artifact("typescript")
     if tarball is None:
         return False
     module = _copy_tree(output, work / "module")
@@ -698,36 +759,67 @@ def _verify_typescript(spec: str, output: Path, examples: list[Path], work: Path
     if not (
         _run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund", "--no-save", str(tarball)], module)
         and _run(["npm", "run", "build"], module)
+        and _run(["npm", "pack", "--ignore-scripts", "--pack-destination", str(work)], module)
     ):
         return False
+    spec_tarball = next(work.glob("*.tgz"), None)
+    consumer = work / "consumer"
+    consumer.mkdir()
+    (consumer / "package.json").write_text(
+        json.dumps({"name": "asm-consumer", "private": True, "type": "module"}), encoding="utf-8",
+    )
+    if spec_tarball is None or not _run(
+        ["npm", "install", "--no-audit", "--no-fund", str(tarball), str(spec_tarball),
+         f"typescript@{TYPESCRIPT_VERSION}"],
+        consumer,
+    ):
+        return False
+
+    forbidden = forbidden_npm_packages(consumer / "node_modules")
+    if forbidden:
+        print(f"[FAIL] Installing the npm packages installs {', '.join(forbidden)}", file=sys.stderr)
+        return False
+    print("[OK] The npm packages install without Angular or RxJS")
+
+    commons_name = LANGUAGES["typescript"].package_fn("")
+    spec_name = LANGUAGES["typescript"].package_fn(spec)
+    probes = _runtime_probes(consumer, {commons_name: OUTPUT / "commons" / "typescript", spec_name: output})
+    if not probes or not all(_run(["node", probe.name], consumer) for probe in probes):
+        print("[FAIL] An enum constant does not load through import and require", file=sys.stderr)
+        return False
+    print(f"[OK] Enum constants load through import and require ({len(probes)} probe(s))")
+
     model = ROOT_MODELS[spec]
-    probes: list[Path] = []
+    examples_ts: list[Path] = []
     for index, example in enumerate(examples):
-        probe = module / f"asm-example-{index}.ts"
+        probe = consumer / f"asm-example-{index}.ts"
         payload = example.read_text(encoding="utf-8")
         probe.write_text(
-            f"import type {{ {model} }} from './model/{_camel(model)}';\n"
+            f"import type {{ {model} }} from '{spec_name}';\n"
             f"export const example = {payload} satisfies {model};\n",
             encoding="utf-8",
         )
-        probes.append(probe)
-    ok = _run(
-        ["npx", "tsc", "--strict", "--noEmit", "--skipLibCheck", "--target", "es2020",
-         "--module", "es2020", "--moduleResolution", "node", *map(str, probes)],
-        module,
-        {**os.environ, "NODE_OPTIONS": "--max-old-space-size=8192"},
-    )
-    if ok:
-        for example in examples:
-            print(f"[OK] {example.name} type-checks as {model}")
-    return ok
+        examples_ts.append(probe)
+    # No --skipLibCheck: an unresolvable import in the published declarations
+    # must fail instead of silently typing the models as ``any``.
+    env = {**os.environ, "NODE_OPTIONS": "--max-old-space-size=8192"}
+    for module_option, resolution in (("esnext", "bundler"), ("nodenext", "nodenext")):
+        if not _run(
+            ["npx", "tsc", "--strict", "--noEmit", "--target", "es2020",
+             "--module", module_option, "--moduleResolution", resolution, *(p.name for p in examples_ts)],
+            consumer,
+            env,
+        ):
+            return False
+        print(f"[OK] {len(examples)} example(s) type-check as {model} ({resolution} resolution)")
+    return True
 
 
 VERIFY = {
     "java": _verify_java,
     "csharp": _verify_csharp,
     "python": _verify_python,
-    "typescript-angular": _verify_typescript,
+    "typescript": _verify_typescript,
 }
 
 

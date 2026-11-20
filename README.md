@@ -65,6 +65,10 @@ instrument package's `HostConfiguration`; it registers the commons converters to
 Without the generic host, call `CommonsJsonConverters.AddTo(options)` on your own
 `JsonSerializerOptions`. Doubles are written in their shortest round-trip form on
 every target framework, including `net48`.
+The npm packages contain only the TypeScript interfaces and the constants of their
+enumerated values (e.g. `SecondsQuantityValue.UnitEnum.S`), as ES modules with no
+framework dependency (no Angular or RxJS): use them from any bundler, or from Node.js
+20.19+ with `import` or `require`.
 
 Every published package carries its own README, generated from
 `allotrope_gen/readme/` and shown on NuGet, npm and PyPI: installation, a usage
@@ -267,7 +271,7 @@ openapi-generator-cli.cmd` in PowerShell to check command discovery. The CLI
 version check also confirms that its JAR can launch.
 
 Generation does **not** require Maven or the .NET SDK. For direct host builds,
-make `mvn` available on `PATH` for Java and `dotnet` for C#. TypeScript uses npm;
+make `mvn` available on `PATH` for Java and `dotnet` for C#. TypeScript uses npm (packages build with `tsc`, their only devDependency);
 Python packaging uses `build` (install it with `python -m pip install build`).
 You can check the optional Java and C# build commands with `mvn --version` and
 `dotnet --version`.
@@ -296,8 +300,10 @@ python verify_deserialization.py --no-generate --specs gc --langs java
 
 Java, C# and Python deserialize each example, serialize it back and must
 reproduce it without any dropped, altered or added member (Java additionally
-fails on unknown properties). TypeScript type-checks each example as an object
-literal with `satisfies <RootModel>` under `tsc --strict`. A variant of each
+fails on unknown properties). TypeScript installs the packed packages in a consumer
+project, which must not receive Angular or RxJS, loads an enum constant through both
+`import` and `require`, and type-checks each example as an object literal with
+`satisfies <RootModel>` under `tsc --strict` with `bundler` and `nodenext` resolution. A variant of each
 technique's first example with one quantity set to `"NaN"` is checked as well,
 together with synthetic variants for constructs the official examples never use
 (named diagnostic data cubes, both forms of the primitive/object unions).

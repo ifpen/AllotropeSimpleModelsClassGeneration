@@ -11,9 +11,11 @@ import pytest
 from verify_deserialization import (
     KNOWN_EXAMPLE_DEVIATIONS,
     compare_documents,
+    forbidden_npm_packages,
     latest_examples,
     prepare_examples,
     spec_manifests,
+    typescript_enum_constant,
     with_nan_quantity,
     without_known_deviations,
 )
@@ -178,3 +180,29 @@ class TestExampleSelection:
 
     def test_missing_directory(self, tmp_path: Path):
         assert latest_examples("dsc", tmp_path) == []
+
+
+class TestTypescriptEnumConstant:
+    ENUM = (
+        "export interface Peak {\n    unit: Peak.UnitEnum;\n}\n"
+        "export namespace Peak {\n    export const UnitEnum = {\n        S: 's',\n        Min: 'min'\n"
+        "    } as const;\n    export type UnitEnum = typeof UnitEnum[keyof typeof UnitEnum];\n}\n"
+    )
+
+    def test_first_enum_in_name_order(self, tmp_path: Path):
+        (tmp_path / "model").mkdir()
+        (tmp_path / "model" / "b.ts").write_text(self.ENUM, encoding="utf-8")
+        (tmp_path / "model" / "a.ts").write_text("export interface A {\n    x: string;\n}\n", encoding="utf-8")
+        assert typescript_enum_constant(tmp_path) == ("Peak.UnitEnum.S", "s")
+
+    def test_package_without_enum(self, tmp_path: Path):
+        (tmp_path / "model").mkdir()
+        (tmp_path / "model" / "a.ts").write_text("export interface A {\n    x: string;\n}\n", encoding="utf-8")
+        assert typescript_enum_constant(tmp_path) is None
+
+
+def test_forbidden_npm_packages(tmp_path: Path):
+    for name in ("@angular/core", "@ifpen/allotrope-models-commons"):
+        (tmp_path / name).mkdir(parents=True)
+        (tmp_path / name / "package.json").write_text("{}", encoding="utf-8")
+    assert forbidden_npm_packages(tmp_path) == ["@angular/core"]
