@@ -60,7 +60,7 @@ class TestCsharpNamespace:
         assert csharp_namespace("gc") == "IFPEN.AllotropeConverters.AllotropeModels.Gc"
 
     def test_commons(self):
-        assert csharp_namespace("") == "IFPEN.AllotropeConverters.AllotropeModels"
+        assert csharp_namespace("") == "IFPEN.AllotropeConverters.AllotropeModels.Commons"
 
     def test_pascal_applied(self):
         # The spec key is Pascal-cased in the C# namespace
@@ -141,7 +141,229 @@ class TestSpecs:
     def test_gc_registered(self):
         assert "gc" in SPECS
 
+    def test_hplc_registered(self):
+        assert "hplc" in SPECS
+        assert SPECS["hplc"].name == "hplc.yaml"
+        assert SPECS["hplc"].is_file()
+
+    def test_hplc_manifest_and_lc_root_reachable_fields(self):
+        from allotrope_gen.schema import load_yaml, schemas_referenced_from_commons
+
+        schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+        root = schemas["liquidChromatographySimpleModel"]
+        assert root["required"] == ["$asm.manifest"]
+        assert root["properties"]["$asm.manifest"]["type"] == "string"
+        assert root["properties"]["$asm.manifest"]["default"].endswith(
+            "/liquid-chromatography.manifest"
+        )
+
+        commons = schemas_referenced_from_commons(SPECS["hplc"])
+        assert {
+            "AsmDatacube",
+            "DateTimeValue", "QuantityValue",
+        } <= commons
+        assert "StringValue" not in commons
+
+        assert LANGUAGES["java"].import_pattern.format(
+            class_name="QuantityValue",
+            commons_package=LANGUAGES["java"].commons_package,
+        ) == "QuantityValue=fr.ifpen.allotropeconverters.allotrope_models.QuantityValue"
+        assert LANGUAGES["typescript-angular"].import_pattern.format(
+            class_name="QuantityValue",
+            commons_package=LANGUAGES["typescript-angular"].commons_package,
+        ) == "QuantityValue=@ifpen/allotrope-models-commons"
+        assert LANGUAGES["csharp"].import_pattern.format(
+            class_name="QuantityValue",
+            commons_package=LANGUAGES["csharp"].commons_package,
+        ) == "QuantityValue=IFPEN.AllotropeConverters.AllotropeModels.Commons.Model.QuantityValue"
+
+        technique_ref = root["properties"]["liquid chromatography aggregate document"]["$ref"]
+        assert technique_ref == "#/components/schemas/liquidChromatographyAggregateDocument"
+        technique = schemas[technique_ref.rsplit("/", 1)[-1]]
+        device_system_ref = technique["properties"]["device system document"]["$ref"]
+        assert device_system_ref == "#/components/schemas/deviceSystemDocument"
+        device_system = schemas[device_system_ref.rsplit("/", 1)[-1]]["properties"]
+        assert {
+            "asset management identifier", "brand name", "custom information aggregate document",
+            "description", "device document", "device identifier", "equipment serial number",
+            "firmware version", "model number", "product manufacturer", "detector model number",
+            "pump model number",
+        } <= device_system.keys()
+
+        aggregate = schemas[
+            root["properties"]["liquid chromatography aggregate document"]["$ref"].rsplit("/", 1)[-1]
+        ]
+        assert "liquid chromatography document" in aggregate["properties"]
+        assert "liquid chromatography document" in aggregate["required"]
+        lc_item = aggregate["properties"]["liquid chromatography document"]["items"]
+        assert lc_item["$ref"] == "#/components/schemas/liquidChromatographyDocument"
+        lc_document = schemas["liquidChromatographyDocument"]
+        assert "measurement aggregate document" in lc_document["properties"]
+        assert "fraction aggregate document" in lc_document["properties"]
+        assert "measurement aggregate document" in lc_document["required"]
+
+        measurement_aggregate = schemas["measurementAggregateDocument"]
+        assert lc_document["properties"]["measurement aggregate document"]["$ref"] == (
+            "#/components/schemas/measurementAggregateDocument"
+        )
+        assert measurement_aggregate["type"] == "object"
+        assert measurement_aggregate["required"] == ["measurement document"]
+        measurement = measurement_aggregate["properties"]["measurement document"]
+        assert measurement["minItems"] == 1
+        assert measurement["items"]["$ref"] == (
+            "#/components/schemas/LiquidChromatographyMeasurementDocument"
+        )
+        assert {
+            "analytical method identifier",
+            "calculated data aggregate document",
+            "custom information aggregate document",
+            "diagnostic trace aggregate document",
+            "error aggregate document",
+            "experimental data identifier",
+            "image aggregate document",
+            "method version",
+            "processed data aggregate document",
+            "statistics aggregate document",
+        } <= measurement_aggregate["properties"].keys()
+
+        # Like GC, HPLC has a named measurement item with fields declared
+        # directly on the item rather than hidden in a root-level overlay.
+        measurement_item = schemas["LiquidChromatographyMeasurementDocument"]
+        measurement_properties = measurement_item["properties"]
+        sample_ref = measurement_properties["sample document"]["$ref"]
+        assert sample_ref == "#/components/schemas/SampleDocument"
+        sample_document = schemas[sample_ref.rsplit("/", 1)[-1]]
+        assert sample_document["properties"]["sample identifier"] == {
+            "type": "string",
+            "description": (
+                "Sample id is a measurement metadata that identifies a sample being measured."
+            ),
+        }
+        assert "sample identifier" in sample_document["required"]
+        assert "chromatogram data cube" in measurement_properties
+        assert "chromatography column document" in measurement_properties
+        assert "injection document" in measurement_properties
+        assert "device control aggregate document" in measurement_properties
+        assert "processed data aggregate document" in measurement_properties
+        cube_ref = "./datacube.yaml#/components/schemas/AsmDatacube"
+        assert measurement_properties["chromatogram data cube"]["$ref"] == cube_ref
+        assert "LiquidChromatographyChromatogramDataCube" not in schemas
+        assert not any(
+            name.startswith("LiquidChromatography")
+            and name.endswith(("Dimension", "Measure", "DataCube"))
+            for name in schemas
+        )
+        assert "device control aggregate document" in measurement_item["required"]
+        assert "chromatography column document" in measurement_item["required"]
+        assert not {"anyOf", "oneOf", "allOf"} & measurement_item.keys()
+        assert {
+            "chromatogram data cube",
+            "three-dimensional ultraviolet spectrum data cube",
+            "absorption spectrum data cube",
+            "transmittance spectrum data cube",
+            "fluorescence emission profile data cube",
+            "fluorescence emission spectrum data cube",
+            "fluorescence excitation spectrum data cube",
+            "mass chromatogram data cube",
+            "mass spectrum data cube",
+            "three-dimensional mass spectrum data cube",
+        } <= measurement_properties.keys()
+        column_ref = measurement_properties["chromatography column document"]["$ref"]
+        column = schemas[column_ref.rsplit("/", 1)[-1]]
+        assert column["properties"]["chromatography column particle size"]["$ref"] == (
+            "./common.yaml#/components/schemas/MicrometersQuantityValue"
+        )
+        assert not any(
+            name.endswith("MeasurementDocumentItems")
+            or name.startswith("ChromatographyREC202609")
+            for name in schemas
+        )
+
+    def test_hplc_refs_are_resolvable(self):
+        from allotrope_gen.schema import load_yaml
+
+        spec = load_yaml(SPECS["hplc"])
+        schemas = spec["components"]["schemas"]
+        refs: set[str] = set()
+
+        def visit(node):
+            if isinstance(node, dict):
+                ref = node.get("$ref")
+                if isinstance(ref, str):
+                    refs.add(ref)
+                for child in node.values():
+                    visit(child)
+            elif isinstance(node, list):
+                for child in node:
+                    visit(child)
+
+        visit(spec)
+        local_names = set(schemas)
+        assert not {
+            ref for ref in refs
+            if ref.startswith("#/components/schemas/") and ref.rsplit("/", 1)[-1] not in local_names
+        }
+        assert not {ref for ref in refs if "http://" in ref or "https://" in ref}
+
+        commons = {}
+        for filename in ("common.yaml", "datacube.yaml"):
+            commons.update(load_yaml(SPECS["hplc"].with_name(filename))["components"]["schemas"])
+        assert not {
+            ref for ref in refs
+            if ref.startswith(("./common.yaml#/", "./datacube.yaml#/"))
+            and ref.rsplit("/", 1)[-1] not in commons
+        }
+
     def test_all_values_are_paths(self):
         from pathlib import Path
         for key, path in SPECS.items():
             assert isinstance(path, Path), f"SPECS['{key}'] is not a Path"
+
+
+def test_npm_peer_dependency_range_is_strict_semver():
+    """npm rejects zero-padded versions such as ``2026.09.0`` as a range."""
+    from allotrope_gen.config import LANGUAGES, npm_semver
+    assert npm_semver("2026.09.0") == "2026.9.0"
+    assert LANGUAGES["typescript-angular"].commons_version == "{semver}"
+
+
+class TestVersionPlaceholders:
+    def test_release(self):
+        from allotrope_gen.config import version_placeholders
+        assert version_placeholders("2026.09.0") == {
+            "{version}": "2026.09.0", "{semver}": "2026.9.0", "{pep440}": "2026.9.0",
+        }
+
+    @pytest.mark.parametrize("label, maven, semver, pep440", [
+        ("alpha.1", "2026.09.0-alpha1", "2026.9.0-alpha.1", "2026.9.0a1"),
+        ("beta.2", "2026.09.0-beta2", "2026.9.0-beta.2", "2026.9.0b2"),
+        ("rc.10", "2026.09.0-rc10", "2026.9.0-rc.10", "2026.9.0rc10"),
+    ])
+    def test_prerelease_forms(self, label: str, maven: str, semver: str, pep440: str):
+        from allotrope_gen.config import version_placeholders
+        assert version_placeholders("2026.09.0", label) == {
+            "{version}": maven, "{semver}": semver, "{pep440}": pep440,
+        }
+
+    @pytest.mark.parametrize("label", ["beta", "beta.0", "preview.1", "BETA.1", "beta.1.1"])
+    def test_invalid_label(self, label: str):
+        from allotrope_gen.config import version_placeholders
+        with pytest.raises(ValueError):
+            version_placeholders("2026.09.0", label)
+
+    def test_pep440_form_is_canonical(self):
+        """PyPI normalizes versions; the generated form must already be canonical."""
+        packaging_version = pytest.importorskip("packaging.version")
+        from allotrope_gen.config import version_placeholders
+        for label in ("alpha.1", "beta.1", "rc.1"):
+            pep440 = version_placeholders("2026.09.0", label)["{pep440}"]
+            parsed = packaging_version.Version(pep440)
+            assert str(parsed) == pep440 and parsed.is_prerelease
+
+
+@pytest.mark.parametrize("lang", ["java", "typescript-angular", "csharp", "python"])
+def test_packages_point_to_the_real_repository(lang):
+    """npm trusted publishing rejects packages whose repository URL is not the publisher's."""
+    from allotrope_gen.config import LANGUAGES
+    props = LANGUAGES[lang].extra_props
+    assert (props["gitUserId"], props["gitRepoId"]) == ("ifpen", "AllotropeSimpleModelsClassGeneration")

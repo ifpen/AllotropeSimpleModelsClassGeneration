@@ -5,72 +5,71 @@ info:
 
 components:
   schemas:
-    Datacube:
+    # General ASM datacube representation. The legacy DatacubeData above stays
+    # unchanged for existing generated consumers; new instruments can use this
+    # schema when data is represented with strings, booleans, functions, or points.
+    AsmDatacube:
       type: object
       properties:
+        cube-structure:
+          $ref: '#/components/schemas/AsmDatacubeStructure'
+        data:
+          $ref: '#/components/schemas/AsmDatacubeData'
         label:
           type: string
-        DatacubeStructure:
-          $ref: '#/components/schemas/datacubeStructure'
-        DatacubeData:
-          $ref: '#/components/schemas/datacubeData'
 
-    datacubeStructure:
+    AsmDatacubeStructure:
       type: object
       properties:
         dimensions:
           type: array
+          uniqueItems: true
           items:
-            $ref: '#/components/schemas/datacubeComponent'
+            $ref: '#/components/schemas/AsmDatacubeComponent'
         measures:
           type: array
+          minItems: 1
+          uniqueItems: true
           items:
-            $ref: '#/components/schemas/datacubeComponent'
+            $ref: '#/components/schemas/AsmDatacubeComponent'
+      required: [dimensions, measures]
 
-    datacubeComponent:
-        type: object
-        properties:
-          componentDataType:
-            type: string
-            enum:
-              - DOUBLE
-              - FLOAT
-              - DECIMAL
-              - INTEGER
-              - BYTE
-              - INT
-              - SHORT
-              - LONG
-              - STRING
-              - BOOLEAN
-              - DATE_TIME
-          scale:
-            type: string
-            enum:
-              - NOMINAL
-              - ORDINAL
-              - CARDINAL
-              - INTERVAL
-              - RANGE
-          concept:
-            type: string
-          unit:
-            type: string
+    AsmDatacubeComponent:
+      type: object
+      properties:
+        "@componentDatatype":
+          type: string
+          enum: [double, float, decimal, integer, byte, int, short, long, string, boolean, dateTime]
+          default: double
+        concept:
+          type: string
+        scale:
+          type: string
+          enum: [nominal, ordinal, cardinal, interval, range]
+        unit:
+          type: string
+        "$asm.fill-value":
+          anyOf:
+            - type: string
+            - type: number
+            - type: integer
+            - type: boolean
+      required: ["@componentDatatype", concept]
 
-    datacubeData:
+    AsmDatacubeData:
       type: object
       properties:
         dimensions:
           type: array
           items:
             type: array
-            items:
-              type: number
-              format: double
+            items: {}
         measures:
           type: array
           items:
             type: array
-            items:
-              type: number
-              format: double
+            items: {}
+        points:
+          type: array
+          items: {}
+

@@ -126,6 +126,56 @@ class TestSchemasReferencedFromCommons:
         result = schemas_referenced_from_commons(spec, [datacube_yaml])
         assert result == {"Cube"}
 
+    def test_legacy_datacube_data_ref_does_not_infer_wrapper(self, tmp_path: Path):
+        datacube = tmp_path / "datacube.yaml"
+        datacube.write_text(
+            "openapi: '3.1.0'\ncomponents:\n  schemas:\n"
+            "    DatacubeData:\n      type: object\n"
+            "    datacubeData:\n      type: object\n",
+            encoding="utf-8",
+        )
+        spec = tmp_path / "spec_legacy_datacube.yaml"
+        spec.write_text(
+            "openapi: '3.1.0'\ncomponents:\n  schemas:\n"
+            "    M:\n      $ref: './datacube.yaml#/components/schemas/datacubeData'\n",
+            encoding="utf-8",
+        )
+        assert schemas_referenced_from_commons(spec, [datacube]) == {"datacubeData"}
+
+    def test_matches_refs_with_inline_sibling_properties(self, tmp_path: Path, common_yaml: Path):
+        spec = tmp_path / "spec_inline_ref.yaml"
+        spec.write_text(
+            "openapi: '3.1.0'\ncomponents:\n  schemas:\n"
+            "    M:\n      type: object\n      properties:\n"
+            "        external:\n          $ref: './common.yaml#/components/schemas/Foo'\n",
+            encoding="utf-8",
+        )
+        assert schemas_referenced_from_commons(spec, [common_yaml]) == {"Foo"}
+
+    def test_matches_double_quoted_ref(self, tmp_path: Path, common_yaml: Path):
+        spec = tmp_path / "spec_double_quoted_ref.yaml"
+        spec.write_text(
+            'openapi: "3.1.0"\ncomponents:\n  schemas:\n'
+            '    M:\n      $ref: "./common.yaml#/components/schemas/Foo"\n',
+            encoding="utf-8",
+        )
+        assert schemas_referenced_from_commons(spec, [common_yaml]) == {"Foo"}
+
+    def test_matches_ref_to_additional_commons_file(self, tmp_path: Path):
+        core = tmp_path / "core.yaml"
+        core.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n  CoreModel: {type: object}\n",
+            encoding="utf-8",
+        )
+        spec = tmp_path / "spec_core_ref.yaml"
+        spec.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n"
+            "  Model:\n    $ref: './core.yaml#/components/schemas/CoreModel'\n",
+            encoding="utf-8",
+        )
+
+        assert schemas_referenced_from_commons(spec, [core]) == {"CoreModel"}
+
 
 # ---------------------------------------------------------------------------
 # merged_commons_yaml
@@ -147,6 +197,43 @@ class TestMergedCommonsYaml:
         doc = load_yaml(out)
         names = schema_names(doc)
         assert {"Foo", "Bar", "Cube"}.issubset(names)
+
+    def test_rewrites_cross_file_refs_to_merged_components(self, tmp_path: Path):
+        """Merged commons refs resolve inside the merged document."""
+        common = tmp_path / "common.yaml"
+        common.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n"
+            "  Quantity: {type: object}\n"
+            "  QuantityAlias:\n    $ref: './common.yaml#/components/schemas/Quantity'\n",
+            encoding="utf-8",
+        )
+        core = tmp_path / "core.yaml"
+        core.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n"
+            "  Sequence:\n    properties:\n"
+            "      start:\n        $ref: './common.yaml#/components/schemas/QuantityAlias'\n",
+            encoding="utf-8",
+        )
+
+        merged = load_yaml(merged_commons_yaml(tmp_path, [common, core]))
+        schemas = merged["components"]["schemas"]
+
+        assert schemas["QuantityAlias"]["$ref"] == "#/components/schemas/Quantity"
+        assert (
+            schemas["Sequence"]["properties"]["start"]["$ref"]
+            == "#/components/schemas/QuantityAlias"
+        )
+
+    def test_merges_core_file(self, tmp_path: Path):
+        core = tmp_path / "core.yaml"
+        core.write_text(
+            "openapi: '3.1.0'\ncomponents:\n schemas:\n  CoreModel: {type: object}\n",
+            encoding="utf-8",
+        )
+
+        out = merged_commons_yaml(tmp_path, [core])
+
+        assert "CoreModel" in schema_names(load_yaml(out))
 
     def test_identical_duplicate_is_silently_merged(self, tmp_path: Path):
         """The same schema definition in two files should not raise."""

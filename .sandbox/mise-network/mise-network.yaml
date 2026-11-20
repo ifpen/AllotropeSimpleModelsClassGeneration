@@ -1,0 +1,24 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+displayName: Allotrope development tool downloads
+description: Egress hosts used to install this project's pinned mise toolchain, clone the complete upstream ASM repository, and resolve ASM ontology descriptions.
+kind: mixin
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - nodejs.org
+          - mise-java.jdx.dev
+          - pypi.org
+          - files.pythonhosted.org
+          - registry.npmjs.org
+          - gitlab.com
+          - www.ebi.ac.uk
+          - repo1.maven.org
+          - repo.maven.apache.org
+          - archive.apache.org
+          - builds.dotnet.microsoft.com
+          - api.github.com
+          - api.nuget.org

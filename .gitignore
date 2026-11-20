@@ -1,4 +1,5 @@
 target/
+.env
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -39,3 +40,8 @@ build/
 ### Mac OS ###
 .DS_Store
 **/__pycache__/**
+.maven/
+maven.zip
+build.log
+.opencode/**
+allotrope_gen.egg-info/**

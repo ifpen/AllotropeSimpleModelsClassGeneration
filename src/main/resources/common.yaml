@@ -8,14 +8,76 @@ components:
     QuantityValue:
       type: object
       properties:
+        "@type":
+          type: string
+        has statistic datum role:
+          enum:
+            - arithmetic mean role
+            - median role
+            - relative standard deviation role
+            - skewness role
+            - standard deviation role
+            - variance role
+            - maximum value role
+            - minimum value role
+            - initial value role
+            - final value role
+            - geometric mean role
+            - coefficient of variation role
+            - median absolute deviation role
         value:
+          description: >-
+            Numeric quantity. ASM encodes an unavailable value as the JSON string "NaN";
+            generated clients read and write it as a floating-point NaN.
           type: number
           format: double
+          # Post-generation patches (allotrope_gen.patch) make this field accept
+          # and emit the ASM "NaN" string in every language.
+          x-asm-nan: true
         unit:
           type: string
       required:
-        - unit
         - value
+
+    DateTimeValue:
+      description: ASM date-time value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: string
+          format: date-time
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: string
+              format: date-time
+          required: ["@type", value]
+
+    DateTimeStampValue:
+      description: ASM date-time-stamp value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: string
+          format: date-time
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: string
+              format: date-time
+          required: ["@type", value]
+
+    IntegerValue:
+      description: ASM integer value, represented either as a primitive or a typed value object.
+      oneOf:
+        - type: integer
+        - type: object
+          properties:
+            "@type":
+              type: string
+            value:
+              type: integer
+          required: ["@type", value]
 
     MetersQuantityValue:
       allOf:
@@ -41,7 +103,8 @@ components:
           properties:
             unit:
               type: string
-              enum: ["µm"]
+              enum: [ "\u03BCm" ]
+              x-enum-varnames: [ Micro_m ]
 
     SecondsQuantityValue:
       allOf:
@@ -51,6 +114,15 @@ components:
             unit:
               type: string
               enum: ["s"]
+
+    MinutesQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: ["min"]
 
     MicrolitersQuantityValue:
       allOf:
@@ -62,6 +134,73 @@ components:
               enum: [ "μL" ]
               x-enum-varnames: [ Micro_L ]
               x-enum-values: [ "\u03BCL" ]
+
+    MillilitersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "mL" ]
+
+    NanometersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "nm" ]
+
+    CentimetersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "cm" ]
+
+    CubicMillimetersQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "mm^3" ]
+              x-enum-varnames: [ mm3 ]
+
+    MillilitersPerMinuteQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "mL/min" ]
+              x-enum-varnames: [ mL_per_min ]
+
+    CountsQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "#" ]
+              x-enum-varnames: [ count ]
+
+    MassToChargeQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "m/z" ]
+              x-enum-varnames: [ m_per_z ]
 
     HertzQuantityValue:
       allOf:
@@ -89,3 +228,30 @@ components:
             unit:
               type: string
               enum: [ "%" ]
+
+    DegreesCelsiusQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "degC" ]
+
+    JoulePerGramQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "J/g" ]
+
+    JoulePerGramDegreeCelsiusQuantityValue:
+      allOf:
+        - $ref: '#/components/schemas/QuantityValue'
+        - type: object
+          properties:
+            unit:
+              type: string
+              enum: [ "J/(g °C)" ]

@@ -19,7 +19,9 @@ import json
 import sys
 from pathlib import Path
 
-from .config import LanguageConfig
+import yaml
+
+from .config import LanguageConfig, version_placeholders
 
 
 def to_pascal(s: str) -> str:
@@ -54,6 +56,8 @@ def interpolate(value: str, spec: str) -> str:
         PascalCase version (e.g. ``"Gc"``).
     ``{spec_upper}``
         Upper-case version (e.g. ``"GC"``).
+    ``{module}``
+        The spec key, or ``"commons"`` for the commons library (``spec=""``).
 
     Examples::
 
@@ -61,16 +65,48 @@ def interpolate(value: str, spec: str) -> str:
         'allotrope-models-gc'
         >>> interpolate("Models{spec_pascal}", "gc")
         'ModelsGc'
+        >>> interpolate("allotrope-models-{module}", "")
+        'allotrope-models-commons'
         >>> interpolate("no placeholders", "gc")
         'no placeholders'
     """
     from .config import to_pascal as _tp
     return (
         value
+        .replace("{module}", spec or "commons")
         .replace("{spec}", spec)
         .replace("{spec_pascal}", _tp(spec))
         .replace("{spec_upper}", spec.upper())
     )
+
+
+def module_version(spec: str) -> str:
+    """Return the version of a module: its spec ``info.version`` or the commons version.
+
+    Raises:
+        ValueError: If the spec has no ``info.version``.
+    """
+    from .config import COMMONS_VERSION, SPECS
+    if not spec:
+        return COMMONS_VERSION
+    with open(SPECS[spec], encoding="utf-8") as stream:
+        version = (yaml.safe_load(stream).get("info") or {}).get("version")
+    if not version:
+        raise ValueError(f"{SPECS[spec]} has no info.version")
+    return str(version)
+
+
+def resolve_version(template: str, spec: str, prerelease: str | None = None) -> str:
+    """Replace the version placeholders of *template* for a module.
+
+    Args:
+        template:   Text containing ``{version}``, ``{semver}`` or ``{pep440}``.
+        spec:       Spec identifier (``""`` for the commons library).
+        prerelease: Optional pre-release label (``beta.1``).
+    """
+    for placeholder, value in version_placeholders(module_version(spec), prerelease).items():
+        template = template.replace(placeholder, value)
+    return template
 
 
 def write_config(
@@ -78,6 +114,7 @@ def write_config(
     spec: str,
     cfg: LanguageConfig,
     output_dir: Path,
+    prerelease: str | None = None,
 ) -> Path:
     """Write the generator config JSON to *output_dir* and return its path.
 
@@ -86,18 +123,33 @@ def write_config(
     (e.g. ``modelPackage``, ``packageName``) is injected here because
     ``--config`` takes precedence over other CLI flags when both are present.
 
+    Besides the :func:`interpolate` placeholders, values may use:
+
+    ``{package}``
+        The language package of the module (``cfg.package_fn(spec)``).
+    ``{version}`` / ``{semver}`` / ``{pep440}``
+        The module version: the spec's OpenAPI ``info.version`` (or
+        :data:`~allotrope_gen.config.COMMONS_VERSION` for commons) in the
+        Maven, npm/NuGet and PyPI spellings, including the optional
+        *prerelease* label (see :func:`~allotrope_gen.config.version_placeholders`).
+
     Args:
         props:      Raw ``extra_props`` from :class:`~allotrope_gen.config.LanguageConfig`,
                     whose values may contain ``{spec}`` placeholders.
         spec:       Current spec identifier (``""`` for the commons library).
         cfg:        Language configuration.
         output_dir: Directory where the config file will be written.
+        prerelease: Optional pre-release label (``beta.1``).
 
     Returns:
         Path to the written ``openapi-generator-config.json``.
     """
-    resolved = {k: interpolate(v, spec) for k, v in props.items()}
-    resolved[cfg.package_key] = cfg.package_fn(spec)
+    package = cfg.package_fn(spec)
+    resolved = {
+        k: resolve_version(interpolate(v, spec).replace("{package}", package), spec, prerelease)
+        for k, v in props.items()
+    }
+    resolved[cfg.package_key] = package
     config_path = output_dir / "openapi-generator-config.json"
     config_path.write_text(
         json.dumps(resolved, indent=2, ensure_ascii=False),
@@ -129,12 +181,35 @@ def build_import_mappings(common_schemas: set[str], cfg: LanguageConfig) -> str:
     )
 
 
+def build_schema_mappings(common_schemas: set[str], cfg: LanguageConfig) -> str:
+    """Build the comma-separated ``--schema-mappings`` value.
+
+    Import mappings only change how a commons type is referenced; schema
+    mappings additionally stop the generator from emitting a model for it.
+    Both are needed so instrument packages use (rather than duplicate) the
+    published commons classes.
+
+    Args:
+        common_schemas: Commons schema names reachable from the spec.
+        cfg:            Language configuration.
+
+    Returns:
+        A comma-separated ``Schema=Type`` list, or ``""`` when empty.
+    """
+    pattern = cfg.schema_pattern or cfg.import_pattern
+    return ",".join(
+        pattern.format(class_name=name, commons_package=cfg.commons_package)
+        for name in sorted(common_schemas)
+    )
+
+
 def build_cmd(
     spec: str,
     spec_path: Path,
     cfg: LanguageConfig,
     common_schemas: set[str],
     output_dir: Path,
+    prerelease: str | None = None,
 ) -> list[str]:
     """Build the ``openapi-generator-cli generate`` command for an instrument spec.
 
@@ -142,14 +217,15 @@ def build_cmd(
         spec:           Spec identifier (e.g. ``"gc"``).
         spec_path:      Path to the instrument YAML file.
         cfg:            Language configuration.
-        common_schemas: Commons schemas referenced by this spec; used to build
-                        ``--import-mappings``.
+        common_schemas: Commons schemas reachable from this spec; used to build
+                        ``--import-mappings`` and ``--schema-mappings``.
         output_dir:     Where the generator should write its output.
+        prerelease:     Optional pre-release label (``beta.1``).
 
     Returns:
         Argument list suitable for :func:`subprocess.run`.
     """
-    config_path = write_config(cfg.extra_props, spec, cfg, output_dir)
+    config_path = write_config(cfg.extra_props, spec, cfg, output_dir, prerelease)
     import_mappings = build_import_mappings(common_schemas, cfg)
 
     cmd = [
@@ -160,7 +236,10 @@ def build_cmd(
         "--config",         str(config_path),
     ]
     if import_mappings:
-        cmd += ["--import-mappings", import_mappings]
+        cmd += [
+            "--import-mappings", import_mappings,
+            "--schema-mappings", build_schema_mappings(common_schemas, cfg),
+        ]
     cmd += cfg.extra_opts
     return cmd
 
@@ -169,6 +248,7 @@ def build_commons_cmd(
     merged_path: Path,
     cfg: LanguageConfig,
     output_dir: Path,
+    prerelease: str | None = None,
 ) -> list[str]:
     """Build the ``openapi-generator-cli generate`` command for the commons library.
 
@@ -180,11 +260,12 @@ def build_commons_cmd(
                      :func:`~allotrope_gen.schema.merged_commons_yaml`.
         cfg:         Language configuration.
         output_dir:  Where the generator should write its output.
+        prerelease:  Optional pre-release label (``beta.1``).
 
     Returns:
         Argument list suitable for :func:`subprocess.run`.
     """
-    config_path = write_config(cfg.extra_props, "", cfg, output_dir)
+    config_path = write_config(cfg.extra_props, "", cfg, output_dir, prerelease)
     return [
         generator_cli(), "generate",
         "--input-spec",     str(merged_path),

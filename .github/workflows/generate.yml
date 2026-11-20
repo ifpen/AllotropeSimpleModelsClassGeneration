@@ -1,13 +1,26 @@
 name: Generate and publish Allotrope models
 
+# Publishing rules (allotrope_gen/release.py, PUBLISHING.md):
+# - GitHub release published (tag v<version>[-<label>]): publishes, after checking
+#   that the tag matches COMMONS_VERSION and every spec info.version;
+# - manual run: publishes a pre-release only (prerelease input), else builds only;
+# - push to main: generates and builds only.
 on:
+  release:
+    types: [published]
   push:
     branches: [main]
     paths:
       - 'src/main/resources/**.yaml'
       - 'generate.py'
+      - 'verify_builds.py'
       - 'allotrope_gen/**'
       - 'pyproject.toml'
+      - 'uv.lock'
+      - 'requirements*.txt'
+      - '.mise.toml'
+      - 'openapitools.json'
+      - '.github/workflows/generate.yml'
   workflow_dispatch:
     inputs:
       specs:
@@ -22,199 +35,295 @@ on:
         description: 'Dry run (print commands only)'
         type: boolean
         default: false
+      verify_builds:
+        description: 'Build generated modules before publishing'
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Pre-release label to publish (alpha.N, beta.N or rc.N); empty = build only, releases are published from GitHub releases'
+        required: false
+        default: ''
 
 jobs:
-  generate:
-    runs-on: ubuntu-latest
+  prepare:
+    runs-on: ubuntu-24.04
     outputs:
-      # Pass the matrix of generated (spec, lang) pairs to publish jobs
-      specs: ${{ steps.set-matrix.outputs.specs }}
+      modules: ${{ steps.select.outputs.modules }}
+      specs: ${{ steps.select.outputs.specs }}
+      langs: ${{ steps.select.outputs.langs }}
+      dry_run: ${{ steps.select.outputs.dry_run }}
+      publish: ${{ steps.select.outputs.publish }}
+      prerelease: ${{ steps.select.outputs.prerelease }}
+      spec_list: ${{ steps.select.outputs.spec_list }}
+      lang_list: ${{ steps.select.outputs.lang_list }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          python-version: '3.12.16'
+      - name: Install planner dependency
+        run: python -m pip install pyyaml==6.0.3
+      - id: select
+        name: Plan the run (what to generate, whether to publish)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_SPECS: ${{ github.event.inputs.specs }}
+          REQUESTED_LANGS: ${{ github.event.inputs.langs }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: python -m allotrope_gen.release
 
-      - uses: actions/setup-python@v5
+  generate:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      # Same pinned toolchain as the Docker Sandbox: Python, Node.js, JDK,
+      # Maven, .NET SDK, uv and openapi-generator-cli from .mise.toml.
+      - name: Install the pinned toolchain
+        uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          python-version: '3.12'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install openapi-generator-cli
-        run: npm install -g @openapitools/openapi-generator-cli
-
+          version: 2026.5.2
+          install: true
+          cache: true
       - name: Install Python dependencies
-        run: pip install pyyaml
-
-      - name: Build generate.py args
-        id: build-args
+        run: uv sync --locked --all-extras
+      - name: Generate and verify builds
+        env:
+          SPECS: ${{ needs.prepare.outputs.spec_list }}
+          LANGS: ${{ needs.prepare.outputs.lang_list }}
+          DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
+          VERIFY_BUILDS: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.verify_builds != 'false' }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
         run: |
-          ARGS=""
-          [ -n "${{ github.event.inputs.specs }}" ]    && ARGS="$ARGS --specs ${{ github.event.inputs.specs }}"
-          [ -n "${{ github.event.inputs.langs }}" ]    && ARGS="$ARGS --langs ${{ github.event.inputs.langs }}"
-          [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
-          echo "args=$ARGS" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          args=()
+          if [[ -n "$SPECS" ]]; then
+            read -r -a selected_specs <<< "$SPECS"
+            args+=(--specs "${selected_specs[@]}")
+          fi
+          if [[ -n "$LANGS" ]]; then
+            read -r -a selected_langs <<< "$LANGS"
+            args+=(--langs "${selected_langs[@]}")
+          fi
+          if [[ -n "$PRERELEASE" ]]; then args+=(--prerelease "$PRERELEASE"); fi
+          if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry-run); fi
+          if [[ "$VERIFY_BUILDS" != "true" || "$DRY_RUN" == "true" ]]; then
+            args+=(--no-verify-builds)
+          fi
+          uv run python generate.py "${args[@]}"
 
-      - name: Generate all models
-        run: python generate.py ${{ steps.build-args.outputs.args }}
-
-      - name: Upload generated sources
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ needs.prepare.outputs.publish == 'true' }}
         with:
           name: generated-sources
-          path: target/generated-sources/
+          path: |
+            target/generated-sources/
+            !target/generated-sources/**/node_modules/**
+            !target/generated-sources/**/bin/**
+            !target/generated-sources/**/obj/**
           retention-days: 1
 
-  # --------------------------------------------------------------------------
-  # Java — one publish per generated module (commons + each spec)
-  # --------------------------------------------------------------------------
   publish-java:
-    needs: generate
-    runs-on: ubuntu-latest
+    needs: [prepare, generate]
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"java"') }}
+    runs-on: ubuntu-24.04
     strategy:
-      matrix:
-        module: [commons, gc]   # keep in sync with SPECS in allotrope_gen/config.py
+      matrix: ${{ fromJSON(needs.prepare.outputs.modules) }}
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: generated-sources
           path: target/generated-sources/
-
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: '17.0.21+9'
+          distribution: temurin
           server-id: central
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
-
+          # Reuse downloaded plugins/dependencies: four parallel cold jobs can
+          # hit Maven Central's rate limit (HTTP 429).
+          cache: maven
+      # Instrument modules depend on the commons artifact of the same run;
+      # resolve it from the local repository instead of racing its publication.
+      - name: Install commons into the local Maven repository
+        if: ${{ matrix.module != 'commons' }}
+        working-directory: target/generated-sources/commons/java
+        run: mvn --batch-mode -DskipTests install
       - name: Publish ${{ matrix.module }} to Maven Central
         working-directory: target/generated-sources/${{ matrix.module }}/java
-        run: mvn --batch-mode deploy -P release
+        # The generated pom signs artifacts in its ``sign-artifacts`` profile;
+        # Maven Central rejects unsigned bundles.
+        run: mvn --batch-mode deploy -P sign-artifacts
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-  # --------------------------------------------------------------------------
-  # npm (TypeScript) — commons first, then specs in parallel
-  # --------------------------------------------------------------------------
   publish-npm-commons:
-    needs: generate
-    runs-on: ubuntu-latest
+    needs: [prepare, generate]
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
+    runs-on: ubuntu-24.04
+    # npm trusted publishing (OIDC) is used when configured for the package;
+    # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: generated-sources
           path: target/generated-sources/
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Publish commons to npm
-        working-directory: target/generated-sources/commons/typescript/common
+          node-version: 22.22.1
+          registry-url: https://registry.npmjs.org
+      - name: Install npm with trusted publishing support (>= 11.5.1)
+        run: npm install --global npm@11.21.1
+      - name: Stage commons npm package
+        working-directory: target/generated-sources/commons/typescript
+        # ``npm install`` runs the ``prepare`` build; ng-packagr writes the
+        # publishable Angular package (compiled code + metadata) to dist/.
+        # ``npm stage publish`` needs no 2FA; a maintainer approves the staged
+        # version on npmjs.com. Pre-releases use their dist-tag, never latest.
         run: |
+          tag=latest
+          if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
           npm install
-          npm publish --access public
+          npm stage publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
 
   publish-npm-specs:
-    needs: publish-npm-commons   # commons must exist before specs that depend on it
-    runs-on: ubuntu-latest
+    needs: [prepare, generate, publish-npm-commons]
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
+    runs-on: ubuntu-24.04
+    # npm trusted publishing (OIDC) is used when configured for the package;
+    # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
+    permissions:
+      contents: read
+      id-token: write
     strategy:
-      matrix:
-        spec: [gc]               # keep in sync with SPECS in allotrope_gen/config.py
+      matrix: ${{ fromJSON(needs.prepare.outputs.specs) }}
       fail-fast: false
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: generated-sources
           path: target/generated-sources/
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Publish ${{ matrix.spec }} to npm
-        working-directory: target/generated-sources/${{ matrix.spec }}/typescript
+          node-version: 22.22.1
+          registry-url: https://registry.npmjs.org
+      - name: Install npm with trusted publishing support (>= 11.5.1)
+        run: npm install --global npm@11.21.1
+      # A staged commons package is not installable from the registry: build
+      # and pack the commons of this run to satisfy the peer dependency.
+      - name: Pack commons from this run
+        working-directory: target/generated-sources/commons/typescript
         run: |
-          npm install
-          npm publish --access public
+          npm install --ignore-scripts
+          npm run build
+          mkdir -p "$RUNNER_TEMP/commons"
+          npm pack ./dist --pack-destination "$RUNNER_TEMP/commons"
+      - name: Stage ${{ matrix.spec }} npm package
+        working-directory: target/generated-sources/${{ matrix.spec }}/typescript
+        # Pre-releases go to their dist-tag (alpha/beta/rc), never to latest.
+        run: |
+          tag=latest
+          if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
+          npm install --ignore-scripts --no-save "$RUNNER_TEMP"/commons/*.tgz
+          npm run build
+          npm stage publish ./dist --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
 
-  # --------------------------------------------------------------------------
-  # NuGet (C#)
-  # --------------------------------------------------------------------------
   publish-nuget:
-    needs: generate
-    runs-on: ubuntu-latest
+    needs: [prepare, generate]
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"csharp"') }}
+    runs-on: ubuntu-24.04
+    # NuGet trusted publishing: the OIDC token is exchanged for a short-lived
+    # API key. The nuget.org policy must name this workflow file (generate.yml).
+    permissions:
+      contents: read
+      id-token: write
     strategy:
-      matrix:
-        module: [commons, gc]
+      matrix: ${{ fromJSON(needs.prepare.outputs.modules) }}
       fail-fast: false
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: generated-sources
           path: target/generated-sources/
-
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '8.x'
-
-      - name: Pack and publish ${{ matrix.module }} to NuGet
+          dotnet-version: 8.0.428
+      # Instrument packages reference the commons package of the same run;
+      # restore it from a local feed instead of racing its publication.
+      - name: Pack commons into a local feed
+        if: ${{ matrix.module != 'commons' }}
+        working-directory: target/generated-sources/commons/csharp
+        run: dotnet pack --configuration Release --output "$RUNNER_TEMP/commons-feed"
+      - name: Log in to NuGet (trusted publishing)
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: mvisconte
+      - name: Pack and publish ${{ matrix.module }} NuGet package
         working-directory: target/generated-sources/${{ matrix.module }}/csharp
         run: |
-          dotnet build --configuration Release
-          dotnet pack --configuration Release --no-build
-          dotnet nuget push **/*.nupkg \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
+          mkdir -p "$RUNNER_TEMP/commons-feed"
+          dotnet pack --configuration Release --output "$RUNNER_TEMP/packages" \
+            "-p:RestoreAdditionalProjectSources=$RUNNER_TEMP/commons-feed"
+          dotnet nuget push "$RUNNER_TEMP"/packages/*.nupkg \
+            --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
 
-  # --------------------------------------------------------------------------
-  # PyPI (Python)
-  # --------------------------------------------------------------------------
   publish-pypi:
-    needs: generate
-    runs-on: ubuntu-latest
+    needs: [prepare, generate]
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"python"') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    # One GitHub environment per PyPI project: pypi.org accepts a pending
+    # publisher configuration (repository + workflow + environment) for a
+    # single project name only.
+    environment:
+      name: pypi-${{ matrix.module }}
     strategy:
-      matrix:
-        module: [commons, gc]
+      matrix: ${{ fromJSON(needs.prepare.outputs.modules) }}
       fail-fast: false
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: generated-sources
           path: target/generated-sources/
-
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          python-version: '3.12'
-
-      - name: Publish ${{ matrix.module }} to PyPI
+          python-version: '3.12.16'
+      - name: Build Python distribution
         working-directory: target/generated-sources/${{ matrix.module }}/python
         run: |
-          pip install build twine
+          python -m pip install build==1.6.1
           python -m build
-          twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      # PyPI trusted publishing: one (pending) publisher per project on pypi.org,
+      # naming this workflow file (generate.yml) and environment pypi-<module>.
+      - name: Publish ${{ matrix.module }} to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: target/generated-sources/${{ matrix.module }}/python/dist/
+          # Re-running a release must not fail on files already uploaded.
+          skip-existing: true

@@ -1,0 +1,501 @@
+"""Regression tests for LC root-reachable schema coverage."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from allotrope_gen.asm import latest_lc_schema, require_asm_repository
+from allotrope_gen.config import SPECS
+from allotrope_gen.schema import load_yaml
+
+
+RESOURCES = SPECS["hplc"].parent
+
+
+def _load_official_lc_schema() -> tuple[dict, Path, Path]:
+    """Load the authoritative LC schema from a local full ASM checkout."""
+    repository = require_asm_repository()
+    schema_path = latest_lc_schema(repository)
+    if schema_path is None:
+        raise FileNotFoundError(
+            f"No released LC embedded schema found in ASM checkout {repository}"
+        )
+    return json.loads(schema_path.read_text(encoding="utf-8")), repository, schema_path
+
+
+def _schema_paths(
+    node: object,
+    path: tuple[str, ...] = (),
+    schemas: dict | None = None,
+    seen_refs: frozenset[str] = frozenset(),
+) -> set[tuple[str, ...]]:
+    """Collect property paths, following local component refs in context."""
+    found: set[tuple[str, ...]] = set()
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if (
+            schemas is not None
+            and isinstance(ref, str)
+            and ref.startswith("#/components/schemas/")
+            and ref not in seen_refs
+        ):
+            target = schemas.get(ref.rsplit("/", 1)[-1])
+            if target is not None:
+                found.update(
+                    _schema_paths(target, path, schemas, seen_refs | {ref})
+                )
+        for name, child in node.get("properties", {}).items():
+            child_path = (*path, name)
+            found.add(child_path)
+            found.update(_schema_paths(child, child_path, schemas, seen_refs))
+        for key in ("items", "allOf", "anyOf", "oneOf", "contains"):
+            if key in node:
+                found.update(_schema_paths(node[key], path, schemas, seen_refs))
+    elif isinstance(node, list):
+        for child in node:
+            found.update(_schema_paths(child, path, schemas, seen_refs))
+    return found
+
+
+def _reachable_local_schemas(root: str, schemas: dict) -> set[str]:
+    """Return component schemas reachable from a named root component."""
+    reachable: set[str] = set()
+    pending = [root]
+    while pending:
+        name = pending.pop()
+        if name in reachable or name not in schemas:
+            continue
+        reachable.add(name)
+
+        def visit(node: object) -> None:
+            if isinstance(node, dict):
+                ref = node.get("$ref")
+                if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+                    target = ref.rsplit("/", 1)[-1]
+                    if target not in reachable:
+                        pending.append(target)
+                for child in node.values():
+                    visit(child)
+            elif isinstance(node, list):
+                for child in node:
+                    visit(child)
+
+        visit(schemas[name])
+    return reachable
+
+
+def _reference_store(official: dict) -> dict:
+    store = dict(official.get("$defs", {}))
+    for document in list(store.values()):
+        if isinstance(document, dict) and isinstance(document.get("$id"), str):
+            store[document["$id"]] = document
+    return store
+
+
+def _validate_official(document: dict, official: dict) -> None:
+    jsonschema = pytest.importorskip("jsonschema")
+    resolver = jsonschema.RefResolver.from_schema(official, store=_reference_store(official))
+    validator = jsonschema.Draft202012Validator(official, resolver=resolver)
+    errors = list(validator.iter_errors(document))
+    assert not errors, "\n".join(
+        f"{list(error.absolute_path)}: {error.message}" for error in errors[:10]
+    )
+
+
+def _small_full_lc_document() -> dict:
+    """A small valid LC instance exercising the complete root hierarchy."""
+    return {
+        "$asm.manifest": (
+            "http://purl.allotrope.org/manifests/liquid-chromatography/REC/2026/09/"
+            "liquid-chromatography.manifest"
+        ),
+        "liquid chromatography aggregate document": {
+            "device system document": {
+                "asset management identifier": "system-1",
+                "brand name": "Acme",
+                "description": "LC instrument",
+                "device document": [
+                    {
+                        "@index": 1,
+                        "device type": "liquid chromatograph",
+                        "device identifier": "pump-1",
+                        "model number": "P-100",
+                    }
+                ],
+                "device identifier": "lc-1",
+                "equipment serial number": "serial-1",
+                "firmware version": "1.0",
+                "model number": "LC-100",
+                "product manufacturer": "Acme",
+                "detector model number": "D-200",
+                "pump model number": "P-100",
+            },
+            "liquid chromatography document": [
+                {
+                    "analyst": "analyst-1",
+                    "measurement aggregate document": {
+                        "measurement document": [
+                            {
+                                "chromatogram data cube": {
+                                    "cube-structure": {
+                                        "dimensions": [
+                                            {
+                                                "@componentDatatype": "double",
+                                                "concept": "retention time",
+                                                "unit": "s",
+                                            }
+                                        ],
+                                        "measures": [
+                                            {
+                                                "@componentDatatype": "double",
+                                                "concept": "absorbance",
+                                                "unit": "mAU",
+                                            }
+                                        ],
+                                    },
+                                    "data": {
+                                        "dimensions": [[0.0, 1.0]],
+                                        "measures": [[0.2, 0.8]],
+                                    },
+                                },
+                                "chromatography column document": {
+                                    "chromatography column serial number": "column-1"
+                                },
+                                "sample document": {"sample identifier": "sample-1"},
+                                "device control aggregate document": {
+                                    "device control document": [
+                                        {"@index": 1, "device type": "detector"}
+                                    ]
+                                },
+                            }
+                        ]
+                    },
+                }
+            ]
+        },
+    }
+
+
+def test_official_schema_and_full_sample_from_asm_checkout_are_valid():
+    """Validate upstream LC example data against the authoritative schema."""
+    official, repository, schema_path = _load_official_lc_schema()
+    assert official["$id"].endswith("/liquid-chromatography.tabular.embed.schema")
+    schema_release = schema_path.parent.relative_to(
+        repository / "json-schemas/adm/liquid-chromatography"
+    )
+    assert schema_release.parts[0] == "REC"
+    assert f"/{schema_release.as_posix()}/" in official["$id"]
+    sample_path = (
+        repository
+        / "test/adm/liquid-chromatography"
+        / schema_release
+        / "liquid-chromatography.json"
+    )
+    assert sample_path.is_file(), f"Expected ASM example at {sample_path}"
+    sample = json.loads(sample_path.read_text(encoding="utf-8"))
+    _validate_official(sample, official)
+
+
+def test_full_root_hierarchy_document_validates_against_official_schema():
+    official, _, _ = _load_official_lc_schema()
+    _validate_official(_small_full_lc_document(), official)
+
+
+def test_hplc_schema_has_no_all_of_compositions():
+    spec = load_yaml(SPECS["hplc"])
+
+    def find_all_of(node: object, path: tuple[str, ...] = ()) -> list[tuple[str, ...]]:
+        found = []
+        if isinstance(node, dict):
+            if "allOf" in node:
+                found.append(path)
+            for key, child in node.items():
+                found.extend(find_all_of(child, (*path, str(key))))
+        elif isinstance(node, list):
+            for index, child in enumerate(node):
+                found.extend(find_all_of(child, (*path, str(index))))
+        return found
+
+    assert find_all_of(spec) == []
+
+
+def test_hplc_core_components_are_root_reachable():
+    schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+    reachable = _reachable_local_schemas("liquidChromatographySimpleModel", schemas)
+    assert set(schemas) == reachable
+
+
+def test_hplc_named_components_keep_generator_safe_composition():
+    schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+
+    # The log's HPLC-specific volume unit belongs on the named record, not as
+    # a sibling overlay on its CoreLog reference.
+    log = schemas["liquidChromatographyDocument"]["properties"]["log"]
+    assert log == {"$ref": "./core.yaml#/components/schemas/CoreLog"}
+    core = load_yaml(SPECS["hplc"].parent / "core.yaml")["components"]["schemas"]
+    elapsed_volume = core["CoreLogEntry"]["properties"]["elapsed volume"]
+    assert elapsed_volume == {"$ref": "./common.yaml#/components/schemas/MillilitersQuantityValue"}
+
+    # Peak start/end may be a time or a volume: a plain quantity, not a
+    # oneOf of unit branches (generators emit anonymous wrapper classes).
+    peak = schemas["PeakDocument"]
+    for name in ("peak start", "peak end"):
+        assert peak["properties"][name] == {"$ref": "./common.yaml#/components/schemas/QuantityValue"}
+    # Peak metrics are plain optional properties, not 30 anyOf branches.
+    assert not {"oneOf", "anyOf", "allOf"} & peak.keys()
+    assert "peak width at 5 % of height" in peak["properties"]
+
+
+def test_hplc_properties_never_combine_ref_with_siblings():
+    """``$ref`` siblings are dropped by the generator; use a named unit schema."""
+    schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+    offenders = [
+        f"{name}.{prop}"
+        for name, schema in schemas.items()
+        for prop, sub in (schema.get("properties") or {}).items()
+        if isinstance(sub, dict) and "$ref" in sub and len(sub) > 1
+    ]
+    assert offenders == []
+
+
+def test_hplc_uses_shared_unit_quantity_schemas_when_available():
+    spec = load_yaml(SPECS["hplc"])
+    schemas = spec["components"]["schemas"]
+    common_names = {
+        "SecondsQuantityValue",
+        "MicrolitersQuantityValue",
+        "HertzQuantityValue",
+        "UnitlessQuantityValue",
+        "PercentQuantityValue",
+        "MillimetersQuantityValue",
+    }
+    refs: dict[str, int] = {}
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str):
+                name = ref.rsplit("/", 1)[-1]
+                if ref.startswith("./common.yaml#/components/schemas/") and name in common_names:
+                    refs[name] = refs.get(name, 0) + 1
+            for child in node.values():
+                visit(child)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+
+    visit(schemas)
+    assert set(refs) == common_names
+    assert all(count > 0 for count in refs.values())
+    assert "QudtS" not in schemas
+    assert "QudtL" not in schemas
+
+
+def test_hplc_cubes_use_shared_datacube_without_local_shape_or_unit_wrappers():
+    spec = load_yaml(SPECS["hplc"])
+    schemas = spec["components"]["schemas"]
+    shared_cube_ref = "./datacube.yaml#/components/schemas/AsmDatacube"
+    cube_properties = {
+        "chromatogram data cube",
+        "mass chromatogram data cube",
+        "mass spectrum data cube",
+        "three-dimensional mass spectrum data cube",
+        "three-dimensional ultraviolet spectrum data cube",
+        "absorption spectrum data cube",
+        "transmittance spectrum data cube",
+        "fluorescence emission profile data cube",
+        "fluorescence emission spectrum data cube",
+        "fluorescence excitation spectrum data cube",
+    }
+    found_cubes: list[dict] = []
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            for name, value in node.items():
+                if name in cube_properties and isinstance(value, dict):
+                    found_cubes.append(value)
+            for child in node.values():
+                visit(child)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+
+    visit(schemas)
+    assert len(found_cubes) == len(cube_properties)
+    assert all(cube == {"$ref": shared_cube_ref} for cube in found_cubes)
+    assert not any(
+        name.startswith("LiquidChromatography")
+        and name.endswith(("Dimension", "Measure", "DataCube"))
+        for name in schemas
+    )
+    assert not any("cube-structure" in line for line in SPECS["hplc"].read_text(encoding="utf-8").splitlines())
+
+
+def test_hplc_deprecations_are_scoped_to_officially_deprecated_properties():
+    schemas = load_yaml(SPECS["hplc"])["components"]["schemas"]
+    measurement = schemas["LiquidChromatographyMeasurementDocument"]["properties"]
+
+    deprecated = {
+        name for name, prop in measurement.items() if prop.get("deprecated") is True
+    }
+    assert deprecated == {
+        "analytical method identifier",
+        "experimental data identifier",
+        "method version",
+    }
+    assert measurement["chromatogram data cube"]["$ref"] == (
+        "./datacube.yaml#/components/schemas/AsmDatacube"
+    )
+    assert "deprecated" not in measurement["chromatogram data cube"]
+
+
+def test_hplc_projection_includes_official_lc_root_property_paths():
+    official, _, _ = _load_official_lc_schema()
+    spec = load_yaml(SPECS["hplc"])
+    schemas = spec["components"]["schemas"]
+
+    generated_paths = _schema_paths(
+        schemas["liquidChromatographySimpleModel"], schemas=schemas
+    )
+
+    # Flattened hierarchy and measurement fields remain directly reachable.
+    expected_device = {
+        "asset management identifier",
+        "brand name",
+        "description",
+        "device document",
+        "device identifier",
+        "equipment serial number",
+        "firmware version",
+        "model number",
+        "product manufacturer",
+        "detector model number",
+        "pump model number",
+    }
+    root = schemas["liquidChromatographySimpleModel"]
+    aggregate = schemas[root["properties"]["liquid chromatography aggregate document"]["$ref"].rsplit("/", 1)[-1]]
+    device_ref = aggregate["properties"]["device system document"]["$ref"]
+    generated_device = schemas[device_ref.rsplit("/", 1)[-1]]["properties"]
+    assert expected_device <= generated_device.keys()
+
+    official_device = official["$defs"][
+        "http://purl.allotrope.org/json-schemas/adm/core/REC/2026/09/hierarchy.schema"
+    ]["$defs"]["techniqueAggregateDocument"]["properties"]["device system document"][
+        "properties"
+    ]
+    assert {
+        "asset management identifier",
+        "brand name",
+        "description",
+        "device document",
+        "device identifier",
+        "equipment serial number",
+        "firmware version",
+        "model number",
+        "product manufacturer",
+    } <= official_device.keys()
+
+    assert any(
+        path[-2:] == ("sample document", "sample preparation description")
+        for path in generated_paths
+    )
+    root = schemas["liquidChromatographySimpleModel"]
+    manifest = root["properties"]["$asm.manifest"]
+    assert manifest["type"] == "string"
+    assert manifest["default"].endswith(
+        "/liquid-chromatography.manifest"
+    )
+    root_aggregate = schemas[
+        root["properties"]["liquid chromatography aggregate document"]["$ref"].rsplit("/", 1)[-1]
+    ]
+    lc_item = root_aggregate["properties"]["liquid chromatography document"]["items"]
+    assert lc_item["$ref"] == "#/components/schemas/liquidChromatographyDocument"
+    lc_document = schemas["liquidChromatographyDocument"]
+    assert "measurement aggregate document" in lc_document["properties"]
+    assert "fraction aggregate document" in lc_document["properties"]
+    assert "measurement aggregate document" in lc_document["required"]
+    measurement_aggregate = schemas["measurementAggregateDocument"]
+    assert lc_document["properties"]["measurement aggregate document"]["$ref"] == (
+        "#/components/schemas/measurementAggregateDocument"
+    )
+    assert measurement_aggregate["required"] == ["measurement document"]
+    measurement_array = measurement_aggregate["properties"]["measurement document"]
+    assert measurement_array["type"] == "array"
+    assert measurement_array["minItems"] == 1
+    assert measurement_array["items"]["$ref"] == (
+        "#/components/schemas/LiquidChromatographyMeasurementDocument"
+    )
+    assert "LiquidChromatographyMeasurementAggregateDocument" not in schemas
+
+    measurement_item = schemas["LiquidChromatographyMeasurementDocument"]
+    assert "device control aggregate document" in measurement_item["required"]
+    assert "chromatography column document" in measurement_item["required"]
+    sample_ref = measurement_item["properties"]["sample document"]["$ref"]
+    sample_document = schemas[sample_ref.rsplit("/", 1)[-1]]
+    assert sample_document["properties"]["sample identifier"] == {
+        "type": "string",
+        "description": (
+            "Sample id is a measurement metadata that identifies a sample being measured."
+        ),
+    }
+    assert "sample identifier" in sample_document["required"]
+    assert "chromatogram data cube" in measurement_item["properties"]
+    cube = measurement_item["properties"]["chromatogram data cube"]
+    assert cube["$ref"] == "./datacube.yaml#/components/schemas/AsmDatacube"
+    assert not {"anyOf", "oneOf", "allOf"} & measurement_item.keys()
+    assert {
+        "chromatogram data cube",
+        "three-dimensional ultraviolet spectrum data cube",
+        "absorption spectrum data cube",
+        "transmittance spectrum data cube",
+        "fluorescence emission profile data cube",
+        "fluorescence emission spectrum data cube",
+        "fluorescence excitation spectrum data cube",
+        "mass chromatogram data cube",
+        "mass spectrum data cube",
+        "three-dimensional mass spectrum data cube",
+    } <= measurement_item["properties"].keys()
+    assert "chromatography column document" in measurement_item["properties"]
+    assert "injection document" in measurement_item["properties"]
+    column_ref = measurement_item["properties"]["chromatography column document"]["$ref"]
+    column = schemas[column_ref.rsplit("/", 1)[-1]]
+    particle_size = column["properties"]["chromatography column particle size"]
+    assert particle_size["$ref"] == (
+        "./common.yaml#/components/schemas/MicrometersQuantityValue"
+    )
+    measurement_processed = schemas[
+        measurement_item["properties"]["processed data aggregate document"]["$ref"].rsplit("/", 1)[-1]
+    ]
+    processed_item_ref = measurement_processed["properties"]["processed data document"]["items"]["$ref"]
+    processed_item = schemas[processed_item_ref.rsplit("/", 1)[-1]]
+    peak_list_ref = processed_item["properties"]["peak list"]["$ref"]
+    peak_list = schemas[peak_list_ref.rsplit("/", 1)[-1]]
+    peak_properties = schemas[peak_list["properties"]["peak"]["items"]["$ref"].rsplit("/", 1)[-1]][
+        "properties"
+    ]
+    assert peak_properties["peak area"]["$ref"] == (
+        "./common.yaml#/components/schemas/QuantityValue"
+    )
+    assert peak_properties["peak height"]["$ref"] == (
+        "./common.yaml#/components/schemas/QuantityValue"
+    )
+    assert any(
+        path[-2:] == ("fraction aggregate document", "fraction document")
+        for path in generated_paths
+    )
+    assert any(
+        path[-4:]
+        == (
+            "fraction document",
+            "location aggregate document",
+            "location document",
+            "location identifier",
+        )
+        for path in generated_paths
+    )
+    assert any(path[-2:] == ("peak list", "peak") for path in generated_paths)
+    assert any(path[-2:] == ("peak", "peak start") for path in generated_paths)
+    assert any(path[-2:] == ("peak", "peak end") for path in generated_paths)

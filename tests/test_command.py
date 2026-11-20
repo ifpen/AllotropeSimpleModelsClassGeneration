@@ -228,3 +228,94 @@ class TestBuildCommonsCmd:
         build_commons_cmd(merged, cfg, tmp_path)
         doc = json.loads((tmp_path / "openapi-generator-config.json").read_text())
         assert doc[cfg.package_key] == cfg.package_fn("")
+
+
+# ---------------------------------------------------------------------------
+# Commons mappings and module placeholders
+# ---------------------------------------------------------------------------
+
+
+class TestCommonsMappings:
+    def test_module_placeholder(self):
+        from allotrope_gen.command import interpolate
+        assert interpolate("allotrope-models-{module}", "gc") == "allotrope-models-gc"
+        assert interpolate("allotrope-models-{module}", "") == "allotrope-models-commons"
+
+    def test_package_placeholder_in_config(self, tmp_path: Path):
+        import json as _json
+        from allotrope_gen.command import write_config
+        from allotrope_gen.config import LANGUAGES
+        cfg = LANGUAGES["java"]
+        config = _json.loads(write_config(cfg.extra_props, "gc", cfg, tmp_path).read_text(encoding="utf-8"))
+        assert config["invokerPackage"] == "fr.ifpen.allotropeconverters.allotrope_models.gc.client"
+        assert config["artifactId"] == "allotrope-models-gc"
+        commons = _json.loads(write_config(cfg.extra_props, "", cfg, tmp_path).read_text(encoding="utf-8"))
+        assert commons["artifactId"] == "allotrope-models-commons"
+        # Spec invoker classes never land in the commons model package.
+        assert commons["invokerPackage"] != config["invokerPackage"]
+
+    def test_schema_mappings_default_to_import_pattern(self):
+        from allotrope_gen.command import build_import_mappings, build_schema_mappings
+        from allotrope_gen.config import LANGUAGES
+        for lang in ("java", "csharp", "typescript-angular", "python"):
+            cfg = LANGUAGES[lang]
+            assert build_schema_mappings({"B", "A"}, cfg) == build_import_mappings({"A", "B"}, cfg)
+
+    def test_python_maps_to_bare_class_names(self):
+        from allotrope_gen.command import build_schema_mappings
+        from allotrope_gen.config import LANGUAGES
+        assert build_schema_mappings({"Foo"}, LANGUAGES["python"]) == "Foo=Foo"
+
+    def test_build_cmd_passes_schema_mappings(self, tmp_path: Path):
+        from allotrope_gen.command import build_cmd
+        from allotrope_gen.config import LANGUAGES
+        cmd = build_cmd("gc", tmp_path / "gc.yaml", LANGUAGES["java"], {"Foo"}, tmp_path)
+        mapping = "Foo=fr.ifpen.allotropeconverters.allotrope_models.Foo"
+        assert cmd[cmd.index("--schema-mappings") + 1] == mapping
+        assert cmd[cmd.index("--import-mappings") + 1] == mapping
+
+
+class TestModuleVersions:
+    """Every language publishes a module at its OpenAPI ``info.version``."""
+
+    @pytest.mark.parametrize("lang, key, expected", [
+        ("java", "artifactVersion", "2026.09.0"),
+        ("typescript-angular", "npmVersion", "2026.9.0"),
+        ("csharp", "packageVersion", "2026.9.0"),
+        ("python", "packageVersion", "2026.9.0"),
+    ])
+    def test_spec_version_in_every_language(self, lang: str, key: str, expected: str, tmp_path: Path):
+        from allotrope_gen.command import module_version, write_config
+        from allotrope_gen.config import LANGUAGES
+        assert module_version("gc") == "2026.09.0"
+        cfg = LANGUAGES[lang]
+        config = json.loads(write_config(cfg.extra_props, "gc", cfg, tmp_path).read_text(encoding="utf-8"))
+        assert config[key] == expected
+
+    @pytest.mark.parametrize("prerelease", [None, "beta.1", "rc.2"])
+    def test_commons_dependency_matches_published_commons(self, prerelease, tmp_path: Path):
+        from allotrope_gen.command import module_version, resolve_version, write_config
+        from allotrope_gen.config import COMMONS_VERSION, LANGUAGES
+        assert module_version("") == COMMONS_VERSION
+        for cfg in LANGUAGES.values():
+            config = json.loads(
+                write_config(cfg.extra_props, "", cfg, tmp_path, prerelease).read_text(encoding="utf-8")
+            )
+            published = config.get("artifactVersion") or config.get("npmVersion") or config.get("packageVersion")
+            # Spec packages depend on exactly the version commons is published at.
+            assert resolve_version(cfg.commons_version, "", prerelease) == published
+
+    @pytest.mark.parametrize("lang, key, expected", [
+        ("java", "artifactVersion", "2026.09.0-beta1"),
+        ("typescript-angular", "npmVersion", "2026.9.0-beta.1"),
+        ("csharp", "packageVersion", "2026.9.0-beta.1"),
+        ("python", "packageVersion", "2026.9.0b1"),
+    ])
+    def test_prerelease_in_every_language(self, lang: str, key: str, expected: str, tmp_path: Path):
+        from allotrope_gen.command import write_config
+        from allotrope_gen.config import LANGUAGES
+        cfg = LANGUAGES[lang]
+        config = json.loads(
+            write_config(cfg.extra_props, "gc", cfg, tmp_path, "beta.1").read_text(encoding="utf-8")
+        )
+        assert config[key] == expected

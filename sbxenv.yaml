@@ -1,0 +1,8 @@
+schemaVersion: "1"
+name: allotrope-simple-models
+agent: opencode
+workspace: .
+
+kits:
+  - docker.io/sbx/mise:2026.5.2
+  - ./.sandbox/mise-network

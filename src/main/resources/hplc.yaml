@@ -1,0 +1,790 @@
+openapi: 3.1.0
+info:
+  title: ASM Liquid Chromatography Schemas
+  version: 2026.09.0
+  description: Full root-reachable model for the Allotrope Simple Model Liquid Chromatography (tabular embed) REC/2026/09 schema.
+components:
+  schemas:
+    liquidChromatographySimpleModel:
+      type: object
+      required:
+      - $asm.manifest
+      properties:
+        liquid chromatography aggregate document:
+          $ref: '#/components/schemas/liquidChromatographyAggregateDocument'
+        $asm.manifest:
+          type: string
+          enum:
+          - http://purl.allotrope.org/manifests/liquid-chromatography/REC/2026/09/liquid-chromatography.manifest
+          default: http://purl.allotrope.org/manifests/liquid-chromatography/REC/2026/09/liquid-chromatography.manifest
+    measurementAggregateDocument:
+      type: object
+      properties:
+        analytical method identifier:
+          description: "An analytical method identifier is an identifier that identifies the analytical method used in a measurement. [Allotrope]"
+          type: string
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        diagnostic trace aggregate document:
+          $ref: '#/components/schemas/DiagnosticTraceAggregateDocument'
+        error aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreErrorAggregateDocument
+        experimental data identifier:
+          description: "An experiment data identifier is an identifier that identifies some experiment data. [Allotrope]"
+          type: string
+        image aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreImageAggregateDocument
+        measurement document:
+          description: "A measurement document is a document that encompasses the information associated with a measurement. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/LiquidChromatographyMeasurementDocument'
+        method version:
+          description: "A method version is a version number that identifies a method. [Allotrope]"
+          type: string
+        processed data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreProcessedDataAggregateDocument
+        statistics aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreStatisticsAggregateDocument
+      required:
+      - measurement document
+    LiquidChromatographyMeasurementDocument:
+      type: object
+      properties:
+        analytical method identifier:
+          description: "An analytical method identifier is an identifier that identifies the analytical method used in a measurement. [Allotrope]"
+          deprecated: true
+          type: string
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        detection type:
+          description: "A detection type is a classification datum that classifies the type of detection performed by the detector.. [Allotrope]"
+          type: string
+        device control aggregate document:
+          $ref: '#/components/schemas/DeviceControlAggregateDocument'
+        duration:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        error aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreErrorAggregateDocument
+        experimental data identifier:
+          description: "An experiment data identifier is an identifier that identifies some experiment data. [Allotrope]"
+          deprecated: true
+          type: string
+        image aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreImageAggregateDocument
+        measurement identifier:
+          description: "Measurement id is measurement metadata that identifies the measuring run. [Allotrope]"
+          type: string
+        measurement time:
+          $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+        method version:
+          description: "A method version is a version number that identifies a method. [Allotrope]"
+          deprecated: true
+          type: string
+        processed data aggregate document:
+          $ref: '#/components/schemas/MeasurementProcessedDataAggregateDocument'
+        sample document:
+          $ref: '#/components/schemas/SampleDocument'
+        statistics aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreStatisticsAggregateDocument
+        chromatogram data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        chromatography column document:
+          $ref: '#/components/schemas/ChromatographyColumnDocument'
+        injection document:
+          $ref: '#/components/schemas/InjectionDocument'
+        three-dimensional ultraviolet spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        absorption spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        transmittance spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        fluorescence emission profile data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        fluorescence emission spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        fluorescence excitation spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        mass chromatogram data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        data processing aggregate document:
+          $ref: '#/components/schemas/MeasurementDataProcessingAggregateDocument'
+        sample introduction document:
+          $ref: '#/components/schemas/SampleIntroductionDocument'
+        mass spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        three-dimensional mass spectrum data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+      required:
+      - sample document
+      - device control aggregate document
+      - chromatography column document
+    liquidChromatographyAggregateDocument:
+      type: object
+      properties:
+        analysis sequence document:
+          $ref: ./core.yaml#/components/schemas/AnalysisSequenceDocument
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data system document:
+          $ref: '#/components/schemas/dataSystemDocument'
+        device system document:
+          $ref: '#/components/schemas/deviceSystemDocument'
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        electronic signature aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicSignatureAggregateDocument
+        processed data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreProcessedDataAggregateDocument
+        statistics aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreStatisticsAggregateDocument
+        liquid chromatography document:
+          description: "A liquid chromatography document is a document that encompasses the information associated with a liquid chromatography run. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/liquidChromatographyDocument'
+      required:
+      - liquid chromatography document
+    dataSystemDocument:
+      type: object
+      properties:
+        ASM conversion time:
+          $ref: ./common.yaml#/components/schemas/DateTimeValue
+        ASM converter name:
+          description: "An ASM converter name is a written name of some software used to convert data into the Allotrope Simple Model format. [Allotrope]"
+          type: string
+        ASM converter version:
+          description: "An ASM converter version is a software version specifying the version of an ASM converter used to convert data into the Allotrope Simple Model format. [Allotrope]"
+          type: string
+        ASM file identifier:
+          description: "An ASM file identifier is an identifier that identifies some ASM file. [Allotrope]"
+          type: string
+        UNC path:
+          description: "An UNC path is a file path for a file location in a network that is specified by the universal naming convention. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data system instance identifier:
+          description: "A data system instance identifier is an identifier that identifies an instance of some data system. [Allotrope]"
+          type: string
+        database primary key:
+          description: "A database primary key is an identifier of a database record. [Allotrope]"
+          type: string
+        file name:
+          description: "A file name is a name that denotes a file in a file system. It is a local identifier in the scope of the folder the file is located. [Allotrope]"
+          type: string
+        software name:
+          description: "A software name is a name of some software. [Allotrope]"
+          type: string
+        software version:
+          description: "A version number that identifies software. [Allotrope]"
+          type: string
+      required:
+      - ASM file identifier
+      - data system instance identifier
+    deviceSystemDocument:
+      type: object
+      properties:
+        asset management identifier:
+          description: "An asset management identifier is an identifier that is registered within an asset / inventory management system that identifies an equipment. [Allotrope]"
+          type: string
+        brand name:
+          description: "A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
+        device document:
+          description: "A device document is a document that encompasses the information associated with a device. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/deviceDocument'
+        device identifier:
+          description: "A device identifier is an identifier that identifies some device. [Allotrope]"
+          type: string
+        equipment serial number:
+          description: "Equipment serial number is a serial number that identifies an equipment used in the measuring by its serial number. [Allotrope]"
+          type: string
+        firmware version:
+          description: "A firmware version is a version number that identifies the firmware of a device. [Allotrope]"
+          type: string
+        model number:
+          description: "A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class. The model number is an alternative term for the class. [IAO]"
+          type: string
+        product manufacturer:
+          description: "A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic). [Allotrope]"
+          type: string
+        detector model number:
+          description: "A detector model number is a model number that denotes some class of detectors. [Allotrope]"
+          type: string
+        pump model number:
+          description: "A pump model number is a model number that denotes some class of pumps. [Allotrope]"
+          type: string
+    deviceDocument:
+      type: object
+      properties:
+        brand name:
+          description: "A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        device identifier:
+          description: "A device identifier is an identifier that identifies some device. [Allotrope]"
+          type: string
+        device type:
+          description: "A device type is a classification datum that classifies the type of device used. [Allotrope]"
+          type: string
+        equipment serial number:
+          description: "Equipment serial number is a serial number that identifies an equipment used in the measuring by its serial number. [Allotrope]"
+          type: string
+        firmware version:
+          description: "A firmware version is a version number that identifies the firmware of a device. [Allotrope]"
+          type: string
+        model number:
+          description: "A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class. The model number is an alternative term for the class. [IAO]"
+          type: string
+        product manufacturer:
+          description: "A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic). [Allotrope]"
+          type: string
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
+          type: string
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      required:
+      - device type
+    liquidChromatographyDocument:
+      type: object
+      properties:
+        analyst:
+          description: "Analyst is measurement metadata about the name or identifier of a person that has the role of an analyst in the measurement. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        log:
+          $ref: ./core.yaml#/components/schemas/CoreLog
+        submitter:
+          description: "Submitter is measurement metadata about the name or identifier of a person that has the role of a submitter in the measurement. [Allotrope]"
+          type: string
+        measurement aggregate document:
+          $ref: '#/components/schemas/measurementAggregateDocument'
+        fraction aggregate document:
+          $ref: '#/components/schemas/FractionAggregateDocument'
+      required:
+      - measurement aggregate document
+      - analyst
+    FractionAggregateDocument:
+      properties:
+        fraction document:
+          description: "A fraction document is a document that encompasses the information associated with a fraction. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/FractionDocument'
+    FractionDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        end time:
+          $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+        end trigger reason:
+          description: "An end trigger reason is a description of the justification for the end of some process. [Allotrope]"
+          type: string
+        identifier:
+          description: "An identifier is a name that identifies (that is, labels the identity of) either a unique object or a unique class of objects, where the \"object\" or class may be an idea, physical [countable] object (or class thereof), or physical [uncountable] substance (or class thereof). [Wikipedia]"
+          type: string
+        location aggregate document:
+          $ref: '#/components/schemas/LocationAggregateDocument'
+        start time:
+          $ref: ./common.yaml#/components/schemas/DateTimeStampValue
+        start trigger reason:
+          description: "A start trigger reason is a description of the justification for the start of some process. [Allotrope]"
+          type: string
+        start volume:
+          $ref: ./common.yaml#/components/schemas/MicrolitersQuantityValue
+        volume:
+          $ref: ./common.yaml#/components/schemas/MicrolitersQuantityValue
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
+          type: string
+      required:
+      - volume
+      - location aggregate document
+    LocationAggregateDocument:
+      properties:
+        location document:
+          description: "A location document is a document that encompasses the information associated with some location. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/LocationDocument'
+      required:
+      - location document
+    LocationDocument:
+      type: object
+      properties:
+        location identifier:
+          description: "A location identifier is an identifier that identifies some location or site. [Allotrope]"
+          type: string
+        vial location identifier:
+          description: "A vial location identifier is a local identifier that identifies the location of a vial in the vial container in the scope of the vial container. [Allotrope]"
+          type: string
+        well location identifier:
+          description: "A well location identifier is a local identifier that identifies the location of a well on the container in the scope of the container. [Allotrope]"
+          type: string
+    DeviceControlAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        device control document:
+          description: "A device control document is a document that encompasses the information associated with control of a device. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DeviceControlDocument'
+      required:
+      - device control document
+    DeviceControlDocument:
+      type: object
+      properties:
+        brand name:
+          description: "A brand name is a marketed name given by a maker of a product to a product or class of products, especially a trademark. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        detection type:
+          description: "A detection type is a classification datum that classifies the type of detection performed by the detector.. [Allotrope]"
+          type: string
+        device identifier:
+          description: "A device identifier is an identifier that identifies some device. [Allotrope]"
+          type: string
+        device type:
+          description: "A device type is a classification datum that classifies the type of device used. [Allotrope]"
+          type: string
+        duration setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        equipment serial number:
+          description: "Equipment serial number is a serial number that identifies an equipment used in the measuring by its serial number. [Allotrope]"
+          type: string
+        firmware version:
+          description: "A firmware version is a version number that identifies the firmware of a device. [Allotrope]"
+          type: string
+        model number:
+          description: "A model number is an information content entity specifically borne by catalogs, design specifications, advertising materials, inventory systems and similar that is about manufactured objects of the same class. The model number is an alternative term for the class. [IAO]"
+          type: string
+        product manufacturer:
+          description: "A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic). [Allotrope]"
+          type: string
+        profile setting aggregate document:
+          $ref: '#/components/schemas/ProfileSettingAggregateDocument'
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        detector offset setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        detector sampling rate setting:
+          $ref: ./common.yaml#/components/schemas/HertzQuantityValue
+        detector bandwidth setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        detector wavelength setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        electronic absorbance bandwidth setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        electronic absorbance reference bandwidth setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        electronic absorbance reference wavelength setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        electronic absorbance wavelength setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        excitation bandwidth setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        excitation wavelength setting:
+          $ref: ./common.yaml#/components/schemas/NanometersQuantityValue
+        number of scans setting:
+          $ref: ./common.yaml#/components/schemas/CountsQuantityValue
+        polarization orientation setting:
+          $ref: ./core.yaml#/components/schemas/CoreTNamed
+        read interval setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        total measurement time setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        detection duration setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        detector relative offset setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        m/z maximum setting:
+          $ref: ./common.yaml#/components/schemas/MassToChargeQuantityValue
+        m/z minimum setting:
+          $ref: ./common.yaml#/components/schemas/MassToChargeQuantityValue
+        measurement mode setting:
+          description: "A measurement mode setting is a control setting that specifies the measurement mode of some measurement process. [Allotrope]"
+          type: string
+        polarity setting:
+          $ref: ./core.yaml#/components/schemas/CoreTNamed
+      required:
+      - device type
+    ProfileSettingAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        profile setting document:
+          description: "A profile setting document is a document that encompasses the information associated with some profile setting. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ProfileSettingDocument'
+      required:
+      - profile setting document
+    ProfileSettingDocument:
+      type: object
+      properties:
+        control setting identifier:
+          description: "A control setting identifier is an identifier that identifies some control setting. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
+        duration setting:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        end time setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        final setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        initial setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        profile setting feature:
+          description: "A profile setting feature is a facet that defines the feature with the role of a description or classification of a property, characteristic or facet of some data with the contextual role of a setting datum. [Allotrope]"
+          type: string
+        rate setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        start time setting:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      required:
+      - profile setting feature
+      - initial setting
+      - final setting
+    SampleDocument:
+      type: object
+      properties:
+        batch identifier:
+          description: "A batch identifier is an identifier that identifies a batch. [Allotrope]"
+          type: string
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
+        location identifier:
+          description: "A location identifier is an identifier that identifies some location or site. [Allotrope]"
+          type: string
+        material identifier:
+          description: "A material identifier is a identifier that identifies a material. [Allotrope]"
+          type: string
+        sample identifier:
+          type: string
+          description: Sample id is a measurement metadata that identifies a sample being measured.
+        sample preparation description:
+          description: "A sample preparation description is a description of the sample preparation process. [Allotrope]"
+          type: string
+        sample role type:
+          description: "A sample role type is a classification datum that classifies samples by the type of  sample role in the experiment. [Allotrope]"
+          type: string
+          enum:
+          - control sample role
+          - standard sample role
+          - validation sample role
+          - experiment sample role
+          - sample role
+          - spiked sample role
+          - blank role
+          - unknown sample role
+          - calibration sample role
+          - unspiked sample role
+          - specimen role
+          - quality control sample role
+          - reference sample role
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
+          type: string
+      required:
+      - sample identifier
+    ChromatographyColumnDocument:
+      type: object
+      properties:
+        chromatography column chemistry type:
+          description: "A chromatography column chemistry type is a classification datum that classifies a chromatography column by the stationary phase and/or chromatographic packing used. [Allotrope]"
+          type: string
+        chromatography column length:
+          $ref: ./common.yaml#/components/schemas/CentimetersQuantityValue
+        chromatography column part number:
+          description: "A column part number is a part number that denotes some class of chromatography columns. [Allotrope]"
+          type: string
+        chromatography column particle size:
+          $ref: ./common.yaml#/components/schemas/MicrometersQuantityValue
+        chromatography column serial number:
+          description: "A column serial number is an equipment serial number that identifies some chromatography column. [Allotrope]"
+          type: string
+        column inner diameter:
+          $ref: ./common.yaml#/components/schemas/MillimetersQuantityValue
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        product manufacturer:
+          description: "A product manufacturer is a symbol that denotes the organizational entity manufacturing some entity with a product role (economic). [Allotrope]"
+          type: string
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
+          type: string
+    InjectionDocument:
+      type: object
+      properties:
+        autosampler injection volume setting (chromatography):
+          $ref: ./common.yaml#/components/schemas/CubicMillimetersQuantityValue
+        injection identifier:
+          description: "An injection identifier is an identifier that identifies some injection. [Allotrope]"
+          type: string
+        injection time:
+          description: "An injection time is a time that indicates when an injection is performed. [Allotrope]"
+          type: string
+          format: date-time
+      required:
+      - autosampler injection volume setting (chromatography)
+      - injection identifier
+      - injection time
+    MeasurementDataProcessingAggregateDocument:
+      type: object
+      properties:
+        data processing document:
+          description: "A data processing document is a document that encompasses the metadata associated with a data processing operation. [Allotrope]"
+          type: array
+          items:
+            $ref: '#/components/schemas/MeasurementDataProcessingDocument'
+    MeasurementDataProcessingDocument:
+      type: object
+      properties:
+        data processing description:
+          description: "A data processing description is a description of some data processing operation. [Allotrope]"
+          type: string
+        data processing type:
+          description: "A data processing type is a classification datum that classifies the type of data processing performed. [Allotrope]"
+          type: string
+    SampleIntroductionDocument:
+      type: object
+      properties:
+        flow rate setting:
+          $ref: ./common.yaml#/components/schemas/MillilitersPerMinuteQuantityValue
+        laser firing frequency setting:
+          $ref: ./common.yaml#/components/schemas/HertzQuantityValue
+        sample introduction description:
+          description: "A sample introduction description is a description that describes the process of sample introduction. [Allotrope]"
+          type: string
+        sample introduction medium:
+          description: "A sample introduction medium designates the material type that is used as medium (role) in a sample introduction process in a measurement. [Allotrope]"
+          type: string
+        sample introduction mode setting:
+          description: "A sample introduction mode setting is a control setting that specifies the type of sample introduction process to be used, which is the process of loading the sample into a system. [Allotrope]"
+          type: string
+      required:
+      - sample introduction mode setting
+      - sample introduction medium
+    PeakList:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        peak:
+          description: "A peak is a data region containing a single local extremum in the dependent variable of the distribution function. [Allotrope]"
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/PeakDocument'
+    PeakDocument:
+      type: object
+      properties:
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        asymmetry factor measured at 10 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor measured at 4.4 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor measured at 5 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor measured at baseline:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor squared measured at 10 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        asymmetry factor squared measured at 4.4 % height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        capacity factor (chromatography):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak asymmetry factor:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution using baseline peak widths:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution using peak width at half-height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        chromatographic peak resolution using statistical moments:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        identifier:
+          description: "An identifier is a name that identifies (that is, labels the identity of) either a unique object or a unique class of objects, where the \"object\" or class may be an idea, physical [countable] object (or class thereof), or physical [uncountable] substance (or class thereof). [Wikipedia]"
+          type: string
+        number of theoretical plates (chromatography):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates by peak width at half height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates by peak width at half height (JP14):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates by tangent method:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 13.4 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 32.4 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 4.4 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        number of theoretical plates measured at 60.7 % of peak height:
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        peak area:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak end:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak height:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak selectivity (chromatography):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        peak start:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak value at end:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak value at start:
+          $ref: ./common.yaml#/components/schemas/QuantityValue
+        peak width:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 10 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 13.4 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 32.4 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 4.4 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 5 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at 60.7 % of height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at baseline:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at half height:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        peak width at inflection:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        relative peak area:
+          $ref: ./common.yaml#/components/schemas/PercentQuantityValue
+        relative peak height:
+          $ref: ./common.yaml#/components/schemas/PercentQuantityValue
+        retention time:
+          $ref: ./common.yaml#/components/schemas/SecondsQuantityValue
+        retention volume:
+          $ref: ./common.yaml#/components/schemas/MillilitersQuantityValue
+        statistical skew (chromatography):
+          $ref: ./common.yaml#/components/schemas/UnitlessQuantityValue
+        written name:
+          description: "A textual entity that denotes a particular in reality. [IAO]"
+          type: string
+    DiagnosticTraceAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        diagnostic trace document:
+          description: "A diagnostic trace document is a document that encapsulates the information associated with a diagnostic trace. [Allotrope]"
+          type: array
+          minItems: 0
+          items:
+            $ref: '#/components/schemas/DiagnosticTraceDocument'
+    DiagnosticTraceDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data cube:
+          $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
+      required:
+      - description
+      # Official schema: any member whose name ends with "data cube" is a datacube
+      # (e.g. "pH data cube"); the common "data cube" is declared explicitly.
+      additionalProperties:
+        $ref: ./datacube.yaml#/components/schemas/AsmDatacube
+    MeasurementProcessedDataDocument:
+      type: object
+      properties:
+        calculated data aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCalculatedDataAggregateDocument
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        data processing document:
+          $ref: ./core.yaml#/components/schemas/DataProcessingDocument
+        data source aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreDataSourceAggregateDocument
+        description: {description: "A description is a proposition about an existing entity. [Allotrope]", type: string}
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        group identifier:
+          description: "A group identifier is an identifier that identifies some collection or group. [Allotrope]"
+          type: string
+        match result aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreMatchResultAggregateDocument
+        processed data identifier:
+          description: "A processed data identifier is an identifier that identifies the data output of some data transformation.. [Allotrope]"
+          type: string
+        '@index':
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        peak list:
+          $ref: '#/components/schemas/PeakList'
+        data format specification type:
+          description: "A data format specification type is a classification datum that classifies the data format used to store data. [Allotrope]"
+          type: string
+    MeasurementProcessedDataAggregateDocument:
+      type: object
+      properties:
+        custom information aggregate document:
+          $ref: ./core.yaml#/components/schemas/CoreCustomInformationAggregateDocument
+        electronic project record:
+          $ref: ./core.yaml#/components/schemas/CoreElectronicProjectRecord
+        processed data document:
+          description: "A processed data document is a document that encompasses the output of some data processing operation. [Allotrope]"
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/MeasurementProcessedDataDocument'
+      required:
+      - processed data document
