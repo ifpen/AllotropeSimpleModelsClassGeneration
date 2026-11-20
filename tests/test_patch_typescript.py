@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from allotrope_gen.patch import PatchError
-from allotrope_gen.patch.typescript import add_peer_dependency, allow_nan_strings
+from allotrope_gen.patch import PackageReadme, PatchError
+from allotrope_gen.patch.typescript import add_peer_dependency, allow_nan_strings, describe_package
 
 NAN = {"SecondsQuantityValue": ["value"]}
 
@@ -40,3 +40,22 @@ class TestAllowNanStrings:
         (tmp_path / "model" / "secondsQuantityValue.ts").write_text("value: string;\n", encoding="utf-8")
         with pytest.raises(PatchError):
             allow_nan_strings(tmp_path, NAN)
+
+
+class TestDescribePackage:
+    def test_metadata_and_dist_asset(self, tmp_path: Path):
+        (tmp_path / "package.json").write_text(json.dumps({
+            "name": "@ifpen/allotrope-models-gc", "description": "OpenAPI client for @ifpen/allotrope-models-gc",
+            "author": "OpenAPI-Generator Contributors", "keywords": ["openapi-client"],
+        }), encoding="utf-8")
+        (tmp_path / "ng-package.json").write_text(json.dumps({"lib": {"entryFile": "index.ts"}}), encoding="utf-8")
+        readme = PackageReadme("# GC\n", "GC models.", ("asm", "gc"))
+        describe_package(tmp_path, readme)
+        describe_package(tmp_path, readme)  # idempotent
+        manifest = json.loads((tmp_path / "package.json").read_text(encoding="utf-8"))
+        assert manifest["description"] == "GC models."
+        assert manifest["author"] == "Maxime Visconte"
+        assert manifest["keywords"] == ["asm", "gc"]
+        assert manifest["homepage"].startswith("https://github.com/ifpen/")
+        assert json.loads((tmp_path / "ng-package.json").read_text(encoding="utf-8"))["assets"] == ["README.md"]
+        assert (tmp_path / "README.md").read_text(encoding="utf-8") == "# GC\n"

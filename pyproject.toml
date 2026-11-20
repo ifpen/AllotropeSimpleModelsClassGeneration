@@ -28,8 +28,10 @@ where = ["."]
 include = ["allotrope_gen*"]
 
 [tool.setuptools.package-data]
-# Source files that post-generation patches add to generated code.
+# Source files that post-generation patches add to generated code, and the
+# README templates of the generated packages.
 "allotrope_gen.patch" = ["templates/*"]
+"allotrope_gen.readme" = ["templates/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

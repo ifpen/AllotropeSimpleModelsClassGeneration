@@ -18,6 +18,12 @@ Problem                  Where       Patch per language
 Maven Central needs      commons +   Java: :func:`java.add_central_publishing_plugin`
 the publishing plugin    specs
 -----------------------  ----------  --------------------------------------------------------
+Generated READMEs and    commons +   Java: :func:`java.describe_package`;
+registry metadata        specs       C#: :func:`csharp.describe_package`;
+describe an HTTP                     Python: :func:`python.describe_package`;
+client                               TypeScript: :func:`typescript.describe_package`
+                                     (README text: :mod:`allotrope_gen.readme`)
+-----------------------  ----------  --------------------------------------------------------
 Spec packages use the    specs       Java: :func:`java.add_dependency`;
 commons classes (import              C#: :func:`csharp.add_package_reference`,
 /schema mappings) and                :func:`csharp.register_commons_converters`;
@@ -67,11 +73,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..readme import PackageReadme
 from . import csharp, java, python, typescript
 from .common import PatchError
 
 __all__ = [
     "CommonsDependency",
+    "PackageReadme",
     "PatchError",
     "PatchTargets",
     "csharp",
@@ -122,6 +130,7 @@ def patch_commons_output(
     output_dir: Path,
     namespace: str,
     targets: PatchTargets,
+    readme: PackageReadme,
     dry_run: bool = False,
 ) -> None:
     """Apply every commons-package patch for *generator*.
@@ -132,11 +141,13 @@ def patch_commons_output(
         output_dir: Generated commons output directory.
         namespace:  Commons package/namespace in that language.
         targets:    Schema-driven patch targets of the commons schemas.
+        readme:     README and registry metadata of the package.
         dry_run:    When ``True``, report but do not modify any file.
 
     Raises:
         PatchError: If generated code no longer has an expected shape.
     """
+    _describe_package(generator, output_dir, readme, dry_run)
     if generator == "java":
         java.add_central_publishing_plugin(output_dir / "pom.xml", dry_run)
     elif generator == "csharp":
@@ -155,6 +166,7 @@ def patch_spec_output(
     package: str,
     targets: PatchTargets,
     commons: CommonsDependency | None,
+    readme: PackageReadme,
     dry_run: bool = False,
 ) -> None:
     """Apply every spec-package patch for *generator*.
@@ -167,11 +179,13 @@ def patch_spec_output(
                     this output (commons-mapped schemas excluded).
         commons:    Commons package to depend on, or ``None`` when the spec
                     references no commons schema.
+        readme:     README and registry metadata of the package.
         dry_run:    When ``True``, report but do not modify any file.
 
     Raises:
         PatchError: If generated code no longer has an expected shape.
     """
+    _describe_package(generator, output_dir, readme, dry_run)
     if generator == "java":
         java.add_central_publishing_plugin(output_dir / "pom.xml", dry_run)
         if commons:
@@ -197,3 +211,10 @@ def _patch_csharp_converters(output_dir: Path, namespace: str, targets: PatchTar
     csharp.guard_optional_enum_writes(output_dir, dry_run)
     csharp.keep_additional_properties(output_dir, dry_run)
     csharp.patch_primitive_unions(output_dir, targets.primitive_unions, dry_run)
+
+
+def _describe_package(generator: str, output_dir: Path, readme: PackageReadme, dry_run: bool) -> None:
+    """Install the README and registry metadata of a generated package."""
+    module = {"java": java, "csharp": csharp, "python": python, "typescript-angular": typescript}.get(generator)
+    if module is not None:
+        module.describe_package(output_dir, readme, dry_run)

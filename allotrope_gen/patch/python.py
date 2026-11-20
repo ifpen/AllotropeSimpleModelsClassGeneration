@@ -9,6 +9,9 @@ Python (pydantic) patches.
   unavailable quantity as the JSON string ``"NaN"``; the generated
   ``Union[StrictFloat, StrictInt]`` rejects it, so those fields use the
   ``AsmDouble`` type of ``templates/asm_double.py``.
+* :func:`describe_package` — every Python output.  The generated README (the
+  PyPI page) documents an HTTP client, and the metadata names "OpenAPI
+  Generator Community" as author.
 
 ``oneOf`` primitive/object unions need no patch: the generated
 ``actual_instance`` wrapper reads and writes both forms.
@@ -20,6 +23,8 @@ import re
 import sys
 from pathlib import Path
 
+from ..config import PACKAGE_AUTHOR, PACKAGE_AUTHOR_EMAIL
+from ..readme import PackageReadme
 from .common import attribute_name, render_template, replace_exact, report, snake_case, write_text
 
 #: Line after which the patches insert imports into generated modules.
@@ -157,3 +162,60 @@ def allow_nan_strings(
     if patched:
         write_text(package_dir / "asm_double.py", render_template("asm_double.py"), dry_run)
     report("nan patch", f"python: {patched} model(s) accept the ASM \"NaN\" string")
+
+
+def _toml_string(value: str) -> str:
+    """Return *value* as a TOML basic string."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def describe_package(output_dir: Path, readme: PackageReadme, dry_run: bool = False) -> None:
+    """Write ``README.md`` and the package metadata (idempotent).
+
+    ``pyproject.toml`` (``readme = "README.md"``) is what the build uses;
+    ``setup.py`` is kept consistent with it: description, author and
+    keywords, and its inline ``long_description`` reads the README.
+
+    Args:
+        output_dir: Generated Python output directory.
+        readme:     README, summary and keywords of the package.
+        dry_run:    When ``True``, report but do not write.
+
+    Raises:
+        PatchError: If a metadata field no longer has the generated shape.
+    """
+    write_text(output_dir / "README.md", readme.text, dry_run)
+    keywords = ", ".join(_toml_string(k) for k in readme.keywords)
+
+    pyproject = output_dir / "pyproject.toml"
+    if pyproject.exists():
+        text = pyproject.read_text(encoding="utf-8")
+        text = replace_exact(text, r"^description = .*$", f"description = {_toml_string(readme.summary)}", pyproject)
+        text = replace_exact(
+            text,
+            r"^authors = \[\n(?:  .*\n)*?\]$",
+            f"authors = [\n  {{name = {_toml_string(PACKAGE_AUTHOR)}, email = {_toml_string(PACKAGE_AUTHOR_EMAIL)}}},\n]",
+            pyproject,
+        )
+        text = replace_exact(text, r"^keywords = \[.*\]$", f"keywords = [{keywords}]", pyproject)
+        write_text(pyproject, text, dry_run)
+
+    setup_py = output_dir / "setup.py"
+    if setup_py.exists():
+        text = setup_py.read_text(encoding="utf-8")
+        for field, value in (
+            ("description", repr(readme.summary)),
+            ("author", repr(PACKAGE_AUTHOR)),
+            ("author_email", repr(PACKAGE_AUTHOR_EMAIL)),
+            ("keywords", repr(list(readme.keywords))),
+        ):
+            text = replace_exact(text, rf"^    {field}=.*,$", f"    {field}={value},".replace("\\", "\\\\"), setup_py)
+        if 'long_description=open("README.md"' not in text:
+            text = replace_exact(
+                text,
+                r'^    long_description="""\\\n(?:.*\n)*?    """,.*$',
+                '    long_description=open("README.md", encoding="utf-8").read(),',
+                setup_py,
+            )
+        write_text(setup_py, text, dry_run)
+    report("python patch", "README and package metadata set")

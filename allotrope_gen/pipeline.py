@@ -27,6 +27,7 @@ from pathlib import Path
 from .command import build_cmd, build_commons_cmd, interpolate, resolve_version
 from .config import COMMON_YAML_FILES, LANGUAGES, OUTPUT, SPECS
 from .ontology import enrich_spec_descriptions
+from .readme import render as render_readme
 from .patch import CommonsDependency, PatchError, PatchTargets, patch_commons_output, patch_spec_output
 from .schema import (
     bundle_spec,
@@ -136,7 +137,8 @@ def generate_commons(
         cmd = build_commons_cmd(merged_path, cfg, out, prerelease)
         if run(cmd, dry_run):
             all_ok &= _patched(
-                patch_commons_output, cfg.generator, out, cfg.package_fn(""), targets, dry_run,
+                patch_commons_output, cfg.generator, out, cfg.package_fn(""), targets,
+                render_readme(lang, "commons", prerelease), dry_run,
             )
         else:
             all_ok = False
@@ -202,7 +204,8 @@ def generate_specs(
             if run(cmd, dry_run):
                 commons = commons_dependency(lang, common_schemas, prerelease) if common_schemas else None
                 all_ok &= _patched(
-                    patch_spec_output, cfg.generator, out, cfg.package_fn(spec), targets, commons, dry_run,
+                    patch_spec_output, cfg.generator, out, cfg.package_fn(spec), targets, commons,
+                    render_readme(lang, spec, prerelease), dry_run,
                 )
             else:
                 all_ok = False

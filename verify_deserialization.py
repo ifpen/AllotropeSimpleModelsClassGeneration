@@ -47,7 +47,7 @@ sys.path.insert(0, str(ROOT))
 
 from allotrope_gen.asm import find_asm_repository
 from allotrope_gen.config import LANGUAGES, OUTPUT, SPECS
-from allotrope_gen.schema import load_yaml
+from allotrope_gen.schema import load_yaml, root_schema
 
 
 #: Example directory of each technique in the ASM checkout.
@@ -59,9 +59,7 @@ EXAMPLE_DIRS: dict[str, str] = {
 
 #: Generated root model class of each spec.
 ROOT_MODELS: dict[str, str] = {
-    "gc": "GasChromatographySimpleModel",
-    "dsc": "DifferentialScanningCalorimetrySimpleModel",
-    "hplc": "LiquidChromatographySimpleModel",
+    spec: root_schema(load_yaml(path)["components"]["schemas"])[0] for spec, path in SPECS.items()
 }
 
 #: Content of the official examples that the official REC/2026/09 JSON

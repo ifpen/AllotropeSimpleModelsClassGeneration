@@ -58,6 +58,9 @@ AllotropeSimpleModelsClassGeneration/
 │   │   ├── typescript.py          # Commons peer dependency, NaN type
 │   │   └── templates/             # Source files added to generated code (.cs, .py)
 │   ├── pipeline.py                # Command subprocess execution pipeline
+│   ├── readme/                    # README + registry description of every package
+│   │   ├── __init__.py            # render(lang, module): derived from specs and config
+│   │   └── templates/             # spec.md, commons.md, install/usage snippets per language
 │   ├── release.py                 # CI publishing plan (release tag / pre-release rules)
 │   └── schema.py                  # YAML loader and schema reference collector
 ├── src/
@@ -66,9 +69,7 @@ AllotropeSimpleModelsClassGeneration/
 │           ├── common.yaml        # Shared ASM schemas (QuantityValue, units…)
 │           ├── datacube.yaml      # Datacube-related shared schemas
 │           ├── core.yaml          # Shared ASM core and hierarchy models
-│           ├── gc.yaml            # Gas Chromatography REC/2026/09 instrument spec
-│           └── templates/
-│               └── java/          # Mustache overrides for the Java generator
+│           └── gc.yaml            # Gas Chromatography REC/2026/09 instrument spec
 ├── tests/                         # Unit/integration test suite
 │   ├── conftest.py                # Shared pytest fixtures
 │   ├── test_cli.py                # CLI logic tests
@@ -79,6 +80,7 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── test_patch_csharp.py       # C# converter, double and union patches
 │   ├── test_patch_python.py       # Python commons dependency and NaN patches
 │   ├── test_patch_typescript.py   # npm peer dependency and NaN patches
+│   ├── test_readme.py             # Generated package READMEs
 │   ├── test_pipeline.py           # Pipeline runner tests
 │   ├── test_schema.py             # Schema collision and extraction tests
 │   ├── test_asm.py                # External ASM checkout discovery tests
@@ -281,6 +283,11 @@ gc.yaml ────────┤─ bundle_spec()  → target/bundled-specs/g
    Its `__init__.py` docstring is the catalogue of every patch (problem, outputs, function per
    language). Patches are idempotent, fail loudly with `PatchError` when generated code changes
    shape, and add source files from `allotrope_gen/patch/templates/`. In short:
+   - every package: the generated README (written for an HTTP API client) is replaced by
+     one rendered by `allotrope_gen/readme/`, and the registry metadata is set: NuGet packs
+     it (`PackageReadmeFile`) with `Description`, tags and project URL; npm copies it into
+     `dist/` and gets description, author and keywords; PyPI uses it as long description
+     with author and keywords; Maven gets the POM `<description>`;
    - Java: `central-publishing-maven-plugin` (Maven Central) and the commons dependency;
    - commons dependency of spec packages (NuGet `PackageReference`, npm peer dependency,
      Python requirement plus imports; the spec's parent `__init__.py` files are removed);
@@ -433,10 +440,14 @@ renaming the workflow file breaks publishing until the policy is updated.
 - All schemas should be defined under `components/schemas`; inline schemas in `paths`
   are not used by this pipeline.
 
-### Java Mustache templates (`src/main/resources/templates/java/`)
+### Generator output adjustments
 
-- Only override templates that differ from the upstream openapi-generator defaults.
-- Keep overrides minimal — prefer upstream fixes over local patches when possible.
+- There are no Mustache template overrides: generated code and package metadata are
+  adjusted by post-generation patches (`allotrope_gen/patch/`, catalogue in its
+  `__init__.py`), which fail loudly when the generator output changes.
+- Package READMEs are rendered by `allotrope_gen/readme/` from the specs and
+  `config.py`; edit its templates, never a generated README. Their usage snippets mirror
+  the `verify_deserialization.py` probes; keep them in sync when the client API changes.
 
 ---
 
@@ -555,6 +566,10 @@ specifications are modeled. They complement (but do not override) the orchestrat
   synthetic variant to `verify_deserialization.py`. C# also targets `net48`, where
   System.Text.Json formats doubles differently (issue #13); `net48` behaviour can be checked
   on Linux by running a `net48` build with Mono.
+- 2026-11-20 - The registries show the generated README and metadata: until beta.3, PyPI and
+  npm pages documented an HTTP client with "OpenAPI Generator" as author, and NuGet had no
+  README. Check a packed artifact (`.nupkg`, wheel `METADATA`, npm `dist/`) after changing
+  package metadata; `publish_docs.yml` is not a source of package documentation.
 
 ## License
 

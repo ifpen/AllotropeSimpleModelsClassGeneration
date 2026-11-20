@@ -66,6 +66,11 @@ Without the generic host, call `CommonsJsonConverters.AddTo(options)` on your ow
 `JsonSerializerOptions`. Doubles are written in their shortest round-trip form on
 every target framework, including `net48`.
 
+Every published package carries its own README, generated from
+`allotrope_gen/readme/` and shown on NuGet, npm and PyPI: installation, a usage
+example for its language, the ASM conventions above, and links to the same models
+in the other languages. Maven Central shows the POM description only.
+
 ## Available instrument models
 
 The generator currently includes Gas Chromatography (`gc`), Differential
