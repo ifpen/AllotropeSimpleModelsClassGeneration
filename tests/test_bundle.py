@@ -14,6 +14,7 @@ from allotrope_gen.schema import (
     load_yaml,
     merged_commons_schemas,
     nan_capable_properties,
+    primitive_unions,
 )
 
 
@@ -160,3 +161,18 @@ class TestNanCapableProperties:
         assert result["QuantityValue"] == ["value"]
         assert result["SecondsQuantityValue"] == ["value"]
         assert all(name.endswith("QuantityValue") for name in result)
+
+
+class TestPrimitiveUnions:
+    def test_selects_primitive_or_object_unions(self):
+        schemas = {
+            "Stamp": {"oneOf": [{"type": "string", "format": "date-time"}, {"type": "object"}]},
+            "ByRef": {"oneOf": [{"type": "integer"}, {"$ref": "#/components/schemas/Typed"}]},
+            "Objects": {"oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]},
+            "Primitives": {"oneOf": [{"type": "string"}, {"type": "integer"}]},
+            "Plain": {"type": "object"},
+        }
+        assert primitive_unions(schemas) == ["ByRef", "Stamp"]
+
+    def test_real_commons_unions(self):
+        assert primitive_unions(merged_commons_schemas()) == ["DateTimeStampValue", "DateTimeValue", "IntegerValue"]

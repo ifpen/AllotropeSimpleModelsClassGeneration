@@ -9,7 +9,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from allotrope_gen.pipeline import clean_output, generate_commons, generate_specs, run
+from allotrope_gen.patch import PatchError
+from allotrope_gen.pipeline import (
+    clean_output,
+    commons_dependency,
+    generate_commons,
+    generate_specs,
+    patch_targets,
+    run,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +91,7 @@ class TestCleanOutput:
 class TestGenerateCommons:
     @patch("allotrope_gen.pipeline.run", return_value=True)
     @patch("allotrope_gen.pipeline.merged_commons_yaml")
-    @patch("allotrope_gen.pipeline.patch_java_pom")
+    @patch("allotrope_gen.pipeline.patch_commons_output")
     def test_generate_commons_success(
         self, mock_patch: MagicMock, mock_merge: MagicMock, mock_run: MagicMock, tmp_path: Path
     ):
@@ -94,11 +102,11 @@ class TestGenerateCommons:
             
             assert ok is True
             assert mock_run.call_count == 2
-            mock_patch.assert_called_once()  # Called only for Java
+            assert [c.args[0] for c in mock_patch.call_args_list] == ["java", "python"]
             
     @patch("allotrope_gen.pipeline.run", side_effect=[True, False])
     @patch("allotrope_gen.pipeline.merged_commons_yaml")
-    @patch("allotrope_gen.pipeline.patch_java_pom")
+    @patch("allotrope_gen.pipeline.patch_commons_output")
     def test_generate_commons_failure(
         self, mock_patch: MagicMock, mock_merge: MagicMock, mock_run: MagicMock, tmp_path: Path
     ):
@@ -108,6 +116,19 @@ class TestGenerateCommons:
             ok = generate_commons(["java", "python"], dry_run=False, no_clean=False)
             
             assert ok is False
+            mock_patch.assert_called_once()  # Only the successful run is patched
+
+    @patch("allotrope_gen.pipeline.run", return_value=True)
+    @patch("allotrope_gen.pipeline.merged_commons_yaml")
+    @patch("allotrope_gen.pipeline.patch_commons_output", side_effect=PatchError("shape changed"))
+    def test_patch_error_fails_the_run(
+        self, mock_patch: MagicMock, mock_merge: MagicMock, mock_run: MagicMock,
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+    ):
+        mock_merge.return_value = tmp_path / "commons-merged.yaml"
+        with patch("allotrope_gen.pipeline.OUTPUT", tmp_path):
+            assert generate_commons(["csharp"], dry_run=False, no_clean=False) is False
+        assert "[ERROR] shape changed" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------
@@ -118,12 +139,10 @@ class TestGenerateCommons:
 class TestGenerateSpecs:
     @patch("allotrope_gen.pipeline.enrich_spec_descriptions")
     @patch("allotrope_gen.pipeline.run", return_value=True)
-    @patch("allotrope_gen.pipeline.declare_commons_dependency")
-    @patch("allotrope_gen.pipeline.patch_java_pom")
+    @patch("allotrope_gen.pipeline.patch_spec_output")
     def test_generate_specs_success(
         self,
         mock_patch: MagicMock,
-        mock_declare: MagicMock,
         mock_run: MagicMock,
         mock_enrich: MagicMock,
         tmp_path: Path,
@@ -144,8 +163,9 @@ class TestGenerateSpecs:
             # The generator receives the bundled spec, not the source file.
             assert all(str(bundled) in call.args[0] for call in mock_run.call_args_list)
             mock_bundle.assert_called_once()
-            mock_patch.assert_called_once()  # Called only for Java
-            assert mock_declare.call_count == 2  # Commons dependency for both languages
+            assert [c.args[0] for c in mock_patch.call_args_list] == ["java", "python"]
+            # Both outputs depend on commons (the spec reaches a commons schema).
+            assert all(c.args[4] is not None for c in mock_patch.call_args_list)
             mock_enrich.assert_called_once_with(dummy_spec)
 
     @patch("allotrope_gen.pipeline.run", return_value=True)
@@ -160,38 +180,45 @@ class TestGenerateSpecs:
 
 
 # ---------------------------------------------------------------------------
-# declare_commons_dependency
+# commons_dependency / patch_targets
 # ---------------------------------------------------------------------------
 
 
-class TestDeclareCommonsDependency:
-    @pytest.mark.parametrize("lang, target, expected", [
-        ("java", "add_java_dependency",
-         ("fr.ifpen.allotropeconverters", "allotrope-models-commons", "2026.09.0")),
-        ("csharp", "add_csharp_package_reference",
-         ("IFPEN.AllotropeConverters.AllotropeModels.Commons", "2026.9.0")),
-        ("typescript-angular", "add_npm_peer_dependency",
-         ("@ifpen/allotrope-models-commons", "2026.9.0")),
-        ("python", "patch_python_package",
-         ("ifpen.allotrope_models.gc", "ifpen.allotrope_models", "2026.9.0")),
+class TestCommonsDependency:
+    @pytest.mark.parametrize("lang, name, version, group", [
+        ("java", "allotrope-models-commons", "2026.09.0", "fr.ifpen.allotropeconverters"),
+        ("csharp", "IFPEN.AllotropeConverters.AllotropeModels.Commons", "2026.9.0", ""),
+        ("typescript-angular", "@ifpen/allotrope-models-commons", "2026.9.0", ""),
+        ("python", "ifpen.allotrope_models", "2026.9.0", ""),
     ])
-    def test_dispatch(self, lang: str, target: str, expected: tuple, tmp_path: Path):
-        from allotrope_gen.pipeline import declare_commons_dependency
-        with patch(f"allotrope_gen.pipeline.{target}") as mock:
-            declare_commons_dependency("gc", lang, tmp_path, {"Foo"}, dry_run=False)
-        args = mock.call_args.args
-        assert all(value in args for value in expected)
+    def test_release(self, lang: str, name: str, version: str, group: str):
+        dependency = commons_dependency(lang, {"Foo"})
+        assert (dependency.name, dependency.version, dependency.maven_group) == (name, version, group)
+        assert dependency.schemas == frozenset({"Foo"})
+
+    @pytest.mark.parametrize("lang, expected", [
+        ("java", "2026.09.0-beta1"),
+        ("csharp", "2026.9.0-beta.1"),
+        ("typescript-angular", "2026.9.0-beta.1"),
+        ("python", "2026.9.0b1"),
+    ])
+    def test_prerelease(self, lang: str, expected: str):
+        assert commons_dependency(lang, {"Foo"}, prerelease="beta.1").version == expected
 
 
-class TestCommonsDependencyPrerelease:
-    @pytest.mark.parametrize("lang, target, expected", [
-        ("java", "add_java_dependency", "2026.09.0-beta1"),
-        ("csharp", "add_csharp_package_reference", "2026.9.0-beta.1"),
-        ("typescript-angular", "add_npm_peer_dependency", "2026.9.0-beta.1"),
-        ("python", "patch_python_package", "2026.9.0b1"),
-    ])
-    def test_dependency_uses_commons_prerelease(self, lang: str, target: str, expected: str, tmp_path: Path):
-        from allotrope_gen.pipeline import declare_commons_dependency
-        with patch(f"allotrope_gen.pipeline.{target}") as mock:
-            declare_commons_dependency("gc", lang, tmp_path, {"Foo"}, dry_run=False, prerelease="beta.1")
-        assert expected in mock.call_args.args
+class TestPatchTargets:
+    SCHEMAS = {
+        "Q": {"type": "object", "properties": {"value": {"type": "number", "x-asm-nan": True}}},
+        "Mapped": {"type": "object", "properties": {"value": {"type": "number", "x-asm-nan": True}}},
+        "U": {"oneOf": [{"type": "string"}, {"type": "object"}]},
+    }
+
+    def test_collects_targets(self):
+        targets = patch_targets(self.SCHEMAS)
+        assert targets.nan_properties == {"Q": ["value"], "Mapped": ["value"]}
+        assert targets.primitive_unions == ["U"]
+
+    def test_excludes_mapped_schemas(self):
+        targets = patch_targets(self.SCHEMAS, exclude={"Mapped", "U"})
+        assert targets.nan_properties == {"Q": ["value"]}
+        assert targets.primitive_unions == []

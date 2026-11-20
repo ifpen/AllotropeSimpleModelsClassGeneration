@@ -71,16 +71,63 @@ class TestDeviations:
             assert all(parent and member and reason for parent, member, reason in rules)
 
 
+#: Smallest LC-shaped example every synthetic variant applies to.
+LC_EXAMPLE = {
+    "$asm.manifest": "manifest",
+    "liquid chromatography aggregate document": {
+        "liquid chromatography document": [{
+            "measurement aggregate document": {
+                "measurement document": [{
+                    "processed data aggregate document": {"processed data document": [{}]},
+                }],
+            },
+        }],
+    },
+}
+
+
+def _prepared(tmp_path: Path, spec: str = "hplc") -> dict[str, dict]:
+    """Prepare :data:`LC_EXAMPLE` for *spec*; return the documents by file name."""
+    example = tmp_path / "lc.json"
+    example.write_text(json.dumps(LC_EXAMPLE), encoding="utf-8")
+    work = tmp_path / "work"
+    work.mkdir()
+    return {p.name: json.loads(p.read_text(encoding="utf-8")) for p in prepare_examples(spec, [example], work)}
+
+
 class TestSyntheticVariants:
     def test_hplc_diagnostic_trace_variant(self, tmp_path: Path):
-        example = tmp_path / "lc.json"
-        example.write_text(json.dumps({"measurement aggregate document": {"measurement document": [{}]}}), encoding="utf-8")
-        work = tmp_path / "work"
-        work.mkdir()
-        prepared = {p.name: p for p in prepare_examples("hplc", [example], work)}
-        trace = json.loads(prepared["lc.diagnostic-trace.json"].read_text(encoding="utf-8"))
-        document = trace["measurement aggregate document"]["diagnostic trace aggregate document"]["diagnostic trace document"][0]
+        trace = _prepared(tmp_path)["lc.diagnostic-trace.json"]
+        aggregate = trace["liquid chromatography aggregate document"]["liquid chromatography document"][0]
+        measurement = aggregate["measurement aggregate document"]
+        document = measurement["diagnostic trace aggregate document"]["diagnostic trace document"][0]
         assert document["description"] and "pump pressure data cube" in document
+
+    @pytest.mark.parametrize("suffix, typed", [("union-primitive", False), ("union-typed", True)])
+    def test_union_variants_fill_every_union(self, tmp_path: Path, suffix: str, typed: bool):
+        document = _prepared(tmp_path)[f"lc.{suffix}.json"]
+        technique = document["liquid chromatography aggregate document"]
+        measurement = technique["liquid chromatography document"][0]["measurement aggregate document"][
+            "measurement document"][0]
+        values = [
+            technique["analysis sequence document"]["start time"],
+            measurement["processed data aggregate document"]["processed data document"][0][
+                "data processing document"]["data processing time"],
+            measurement["image aggregate document"]["image document"][0]["index"],
+        ]
+        assert technique["analysis sequence document"]["written name"]
+        if typed:
+            assert all(set(value) == {"@type", "value"} for value in values)
+        else:
+            assert [type(value) for value in values] == [str, str, int]
+
+    def test_gc_union_variant_only_fills_analysis_sequence(self, tmp_path: Path):
+        document = _prepared(tmp_path, "gc")["lc.union-primitive.json"]
+        technique = document["liquid chromatography aggregate document"]
+        measurement = technique["liquid chromatography document"][0]["measurement aggregate document"][
+            "measurement document"][0]
+        assert "analysis sequence document" in technique
+        assert "image aggregate document" not in measurement
 
     def test_variant_must_apply(self, tmp_path: Path):
         example = tmp_path / "lc.json"

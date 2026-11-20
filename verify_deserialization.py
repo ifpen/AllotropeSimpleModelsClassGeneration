@@ -39,6 +39,7 @@ import sys
 import tempfile
 from collections import Counter
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
@@ -244,10 +245,84 @@ def _with_diagnostic_trace(document: object) -> bool:
     return False
 
 
+_DATE_TIME_TYPE = "http://www.w3.org/2001/XMLSchema#dateTime"
+_DATE_TIME_STAMP_TYPE = "http://www.w3.org/2001/XMLSchema#dateTimeStamp"
+_INTEGER_TYPE = "http://www.w3.org/2001/XMLSchema#integer"
+
+
+def _first(document: object, key: str) -> dict | None:
+    """Return the first object reached through *key* (lists: first item)."""
+    if isinstance(document, dict):
+        value = document.get(key)
+        if isinstance(value, list):
+            value = value[0] if value else None
+        if isinstance(value, dict):
+            return value
+        children = document.values()
+    elif isinstance(document, list):
+        children = document
+    else:
+        return None
+    return next((found for child in children if (found := _first(child, key)) is not None), None)
+
+
+def _with_union_values(document: object, typed: bool, extended: bool) -> bool:
+    """Fill the commons primitive-or-object unions of an example.
+
+    ``DateTimeValue``, ``DateTimeStampValue`` and ``IntegerValue`` are
+    ``oneOf`` a JSON primitive and an ``{"@type", "value"}`` object.  No
+    official GC, DSC or LC example uses them, so this variant adds one slot of
+    each union: ``start time``/``end time`` of an analysis sequence document
+    (``DateTimeValue``) and, for techniques that model them (*extended*),
+    ``data processing time`` of the first processed data document
+    (``DateTimeStampValue``) and ``index`` of an image document
+    (``IntegerValue``).  GC models neither.
+
+    Args:
+        document: Example document, modified in place.
+        typed:    Use the typed-object form instead of the primitive form.
+        extended: Also fill the data processing and image document slots.
+
+    Returns:
+        ``True`` when every slot was filled.
+    """
+    def value(primitive: object, asm_type: str) -> object:
+        return {"@type": asm_type, "value": primitive} if typed else primitive
+
+    if not isinstance(document, dict):
+        return False
+    technique = next((v for k, v in document.items() if k.endswith(" aggregate document")), None)
+    if not isinstance(technique, dict):
+        return False
+    technique["analysis sequence document"] = {
+        "written name": "synthetic sequence",
+        "start time": value("2026-11-17T09:00:00Z", _DATE_TIME_TYPE),
+        "end time": value("2026-11-17T10:30:00Z", _DATE_TIME_TYPE),
+    }
+    if extended:
+        processed = _first(document, "processed data document")
+        measurement = _first(document, "measurement document")
+        if processed is None or measurement is None:
+            return False
+        processed["data processing document"] = {
+            "data processing time": value("2026-11-17T11:00:00Z", _DATE_TIME_STAMP_TYPE),
+            "method name": "synthetic union values",
+        }
+        measurement["image aggregate document"] = {
+            "image document": [{"experimental data identifier": "image 1", "index": value(3, _INTEGER_TYPE)}],
+        }
+    return True
+
+
 #: Synthetic variants of a spec's first example: ``(file suffix, mutation)``.
 #: Each mutation must return ``True`` when it changed the document.
 SYNTHETIC_VARIANTS: dict[str, tuple[tuple[str, object], ...]] = {
-    spec: (("diagnostic-trace", _with_diagnostic_trace),) for spec in ("gc", "dsc", "hplc")
+    spec: (
+        ("diagnostic-trace", _with_diagnostic_trace),
+        ("union-primitive", partial(_with_union_values, typed=False, extended=spec != "gc")),
+        ("union-typed", partial(_with_union_values, typed=True, extended=spec != "gc")),
+    )
+    for spec in ("gc", "dsc", "hplc")
 }
 
 
