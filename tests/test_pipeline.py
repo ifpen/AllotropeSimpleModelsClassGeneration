@@ -188,7 +188,7 @@ class TestCommonsDependency:
     @pytest.mark.parametrize("lang, name, version, group", [
         ("java", "allotrope-models-commons", "2026.09.0", "fr.ifpen.allotropeconverters"),
         ("csharp", "IFPEN.AllotropeConverters.AllotropeModels.Commons", "2026.9.0", ""),
-        ("typescript-angular", "@ifpen/allotrope-models-commons", "2026.9.0", ""),
+        ("typescript", "@ifpen/allotrope-models-commons", "2026.9.0", ""),
         ("python", "ifpen.allotrope_models", "2026.9.0", ""),
     ])
     def test_release(self, lang: str, name: str, version: str, group: str):
@@ -199,7 +199,7 @@ class TestCommonsDependency:
     @pytest.mark.parametrize("lang, expected", [
         ("java", "2026.09.0-beta1"),
         ("csharp", "2026.9.0-beta.1"),
-        ("typescript-angular", "2026.9.0-beta.1"),
+        ("typescript", "2026.9.0-beta.1"),
         ("python", "2026.9.0b1"),
     ])
     def test_prerelease(self, lang: str, expected: str):

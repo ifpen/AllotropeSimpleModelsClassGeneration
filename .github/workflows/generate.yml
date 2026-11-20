@@ -169,7 +169,7 @@ jobs:
 
   publish-npm-commons:
     needs: [prepare, generate]
-    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript"') }}
     runs-on: ubuntu-24.04
     # npm trusted publishing (OIDC) is used when configured for the package;
     # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
@@ -189,22 +189,23 @@ jobs:
         run: npm install --global npm@11.21.1
       - name: Stage commons npm package
         working-directory: target/generated-sources/commons/typescript
-        # ``npm install`` runs the ``prepare`` build; ng-packagr writes the
-        # publishable Angular package (compiled code + metadata) to dist/.
+        # ``npm install`` runs the ``prepare`` build: tsc writes the ES module
+        # and its declarations to dist/; the package is published from its
+        # root (``files``: dist/, plus package.json and README.md).
         # ``npm stage publish`` needs no 2FA; a maintainer approves the staged
         # version on npmjs.com. Pre-releases use their dist-tag, never latest.
         run: |
           tag=latest
           if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
           npm install
-          npm stage publish ./dist --access public --tag "$tag"
+          npm stage publish . --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
 
   publish-npm-specs:
     needs: [prepare, generate, publish-npm-commons]
-    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript-angular"') }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && contains(needs.prepare.outputs.langs, '"typescript"') }}
     runs-on: ubuntu-24.04
     # npm trusted publishing (OIDC) is used when configured for the package;
     # npm falls back to NPM_TOKEN otherwise (e.g. a package's first publish).
@@ -233,7 +234,7 @@ jobs:
           npm install --ignore-scripts
           npm run build
           mkdir -p "$RUNNER_TEMP/commons"
-          npm pack ./dist --pack-destination "$RUNNER_TEMP/commons"
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/commons"
       - name: Stage ${{ matrix.spec }} npm package
         working-directory: target/generated-sources/${{ matrix.spec }}/typescript
         # Pre-releases go to their dist-tag (alpha/beta/rc), never to latest.
@@ -242,7 +243,7 @@ jobs:
           if [[ -n "$PRERELEASE" ]]; then tag="${PRERELEASE%%.*}"; fi
           npm install --ignore-scripts --no-save "$RUNNER_TEMP"/commons/*.tgz
           npm run build
-          npm stage publish ./dist --access public --tag "$tag"
+          npm stage publish . --access public --tag "$tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PRERELEASE: ${{ needs.prepare.outputs.prerelease }}

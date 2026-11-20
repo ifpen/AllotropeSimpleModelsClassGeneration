@@ -29,7 +29,7 @@ PATCHES = {
         "describe_package",
     ],
     "python": ["depend_on_commons", "allow_nan_strings", "describe_package"],
-    "typescript": ["add_peer_dependency", "allow_nan_strings", "describe_package"],
+    "typescript": ["keep_models_only", "add_peer_dependency", "allow_nan_strings", "describe_package"],
 }
 
 
@@ -57,7 +57,7 @@ def _called(entry, *args) -> set[str]:
         "csharp.patch_primitive_unions", "csharp.patch_doubles",
     }),
     ("python", {"python.describe_package", "python.allow_nan_strings"}),
-    ("typescript-angular", {"typescript.describe_package", "typescript.allow_nan_strings"}),
+    ("typescript-angular", {"typescript.describe_package", "typescript.keep_models_only", "typescript.allow_nan_strings"}),
 ])
 def test_commons_output(generator: str, expected: set[str], tmp_path: Path):
     assert _called(patch_commons_output, generator, tmp_path, "ns", TARGETS, README) == expected
@@ -72,7 +72,8 @@ def test_commons_output(generator: str, expected: set[str], tmp_path: Path):
     }),
     ("python", {"python.describe_package", "python.depend_on_commons", "python.allow_nan_strings"}),
     ("typescript-angular", {
-        "typescript.describe_package", "typescript.add_peer_dependency", "typescript.allow_nan_strings",
+        "typescript.describe_package", "typescript.keep_models_only", "typescript.add_peer_dependency",
+        "typescript.allow_nan_strings",
     }),
 ])
 def test_spec_output(generator: str, expected: set[str], tmp_path: Path):

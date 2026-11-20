@@ -33,7 +33,7 @@ REQUIRED_MANIFESTS: dict[str, str] = {
     "java": "pom.xml",
     "csharp": "*.sln",
     "python": "pyproject.toml",
-    "typescript-angular": "package.json",
+    "typescript": "package.json",
 }
 
 
@@ -60,15 +60,16 @@ def build_commands(module: str, lang: str) -> list[tuple[str, ...]]:
                  f"-p:RestoreAdditionalProjectSources={feed}")]
     if lang == "python":
         return [("python", "-m", "build")]
-    if lang == "typescript-angular":
-        # Generated clients have no lockfile. Install dev dependencies without
-        # running the package's prepare hook, then invoke the Angular build.
+    if lang == "typescript":
+        # Generated packages have no lockfile. Install the TypeScript compiler
+        # without running the package's prepare hook, then build with tsc.
+        # The package is packed from its root (``files``: dist/).
         tarballs = LOCAL_PACKAGES / "npm"
         if commons:
             return [
                 ("npm", "install", "--ignore-scripts"),
                 ("npm", "run", "build"),
-                ("npm", "pack", "./dist", "--pack-destination", str(tarballs)),
+                ("npm", "pack", "--ignore-scripts", "--pack-destination", str(tarballs)),
             ]
         return [
             ("npm", "install", "--ignore-scripts", "--no-save", *map(str, sorted(tarballs.glob("*.tgz")))),
@@ -117,7 +118,7 @@ def verify_module_lang(
             commons_id = LANGUAGES[lang].package_fn("").lower()
             shutil.rmtree(NUGET_PACKAGES / commons_id, ignore_errors=True)
             shutil.rmtree(LOCAL_PACKAGES / "nuget", ignore_errors=True)
-    if lang == "typescript-angular" and module == "commons":
+    if lang == "typescript" and module == "commons":
         shutil.rmtree(LOCAL_PACKAGES / "npm", ignore_errors=True)
         (LOCAL_PACKAGES / "npm").mkdir(parents=True, exist_ok=True)
 
@@ -175,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--langs", nargs="+", default=list(LANGUAGES),
-        help="Languages to verify (java, csharp, python, typescript-angular). Default is all.",
+        help="Languages to verify (java, csharp, python, typescript). Default is all.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print build commands without running them.")
     args = parser.parse_args(argv)

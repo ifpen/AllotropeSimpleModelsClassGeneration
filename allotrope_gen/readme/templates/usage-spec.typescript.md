@@ -1,5 +1,6 @@
-The package contains TypeScript interfaces (and the `@ifpen` commons types they
-use); it has no runtime code to call. Type parsed ASM JSON with them:
+The package contains TypeScript interfaces and the constants of their enumerated
+values (e.g. `SecondsQuantityValue.UnitEnum.S` from the commons package); it has
+no client code and no runtime dependency. Type parsed ASM JSON with them:
 
 ```typescript
 import { readFileSync, writeFileSync } from 'node:fs';

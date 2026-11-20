@@ -64,10 +64,10 @@ class TestVerifyModuleLang:
     def test_typescript_runs_actual_package_build(self, mock_run: MagicMock, tmp_path: Path):
         out_dir = tmp_path / "target" / "generated-sources" / "gc" / "typescript"
         out_dir.mkdir(parents=True)
-        (out_dir / "package.json").write_text('{"scripts":{"build":"ng-packagr"}}')
+        (out_dir / "package.json").write_text('{"scripts":{"build":"tsc -p tsconfig.json"}}')
         mock_run.return_value = MagicMock(returncode=0)
         with patch("verify_builds.OUTPUT", tmp_path / "target" / "generated-sources"):
-            assert verify_module_lang("gc", "typescript-angular") is True
+            assert verify_module_lang("gc", "typescript") is True
         commands = [call.args[0] for call in mock_run.call_args_list]
         assert commands[0][:4] == ("npm", "install", "--ignore-scripts", "--no-save")
         assert commands[1] == ("npm", "run", "build")
@@ -76,9 +76,9 @@ class TestVerifyModuleLang:
     def test_typescript_does_not_build_if_install_fails(self, mock_run: MagicMock, tmp_path: Path):
         out_dir = tmp_path / "target" / "generated-sources" / "gc" / "typescript"
         out_dir.mkdir(parents=True)
-        (out_dir / "package.json").write_text('{"scripts":{"build":"ng-packagr"}}')
+        (out_dir / "package.json").write_text('{"scripts":{"build":"tsc -p tsconfig.json"}}')
         with patch("verify_builds.OUTPUT", tmp_path / "target" / "generated-sources"):
-            assert verify_module_lang("gc", "typescript-angular") is False
+            assert verify_module_lang("gc", "typescript") is False
         mock_run.assert_called_once()
 
     @patch("verify_builds.verify_module_lang", side_effect=[True, False])
@@ -111,7 +111,7 @@ class TestBuildCommands:
         assert f"-p:RestoreAdditionalProjectSources={LOCAL_PACKAGES / 'nuget'}" in command
 
     def test_typescript_commons_packs_dist(self):
-        assert build_commands("commons", "typescript-angular")[-1][:3] == ("npm", "pack", "./dist")
+        assert build_commands("commons", "typescript")[-1][:3] == ("npm", "pack", "--ignore-scripts")
 
 
 class TestVerifyBuildsMain:
