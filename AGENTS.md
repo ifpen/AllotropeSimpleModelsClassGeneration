@@ -49,7 +49,14 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── cli.py                     # Argument parsing and main orchestrator
 │   ├── command.py                 # Command generator arguments builder
 │   ├── config.py                  # Supported languages, specs, and filesystem config
-│   ├── patch.py                   # pom.xml patch module
+│   ├── patch/                     # Post-generation patches (catalogue in __init__.py)
+│   │   ├── __init__.py            # Catalogue + patch_commons_output / patch_spec_output
+│   │   ├── common.py              # PatchError, fail-loudly replace, templates, dry run
+│   │   ├── java.py                # Central publishing plugin, commons dependency
+│   │   ├── csharp.py              # Converter fixes, commons registry, doubles, unions
+│   │   ├── python.py              # Commons imports/packaging, NaN AsmDouble
+│   │   ├── typescript.py          # Commons peer dependency, NaN type
+│   │   └── templates/             # Source files added to generated code (.cs, .py)
 │   ├── pipeline.py                # Command subprocess execution pipeline
 │   ├── release.py                 # CI publishing plan (release tag / pre-release rules)
 │   └── schema.py                  # YAML loader and schema reference collector
@@ -67,14 +74,17 @@ AllotropeSimpleModelsClassGeneration/
 │   ├── test_cli.py                # CLI logic tests
 │   ├── test_command.py            # Command construction logic tests
 │   ├── test_config.py             # Configuration properties tests
-│   ├── test_patch.py              # Java pom.xml patching tests
+│   ├── test_patch_entrypoints.py  # Which patch applies to which output
+│   ├── test_patch_java.py         # Java POM patches
+│   ├── test_patch_csharp.py       # C# converter, double and union patches
+│   ├── test_patch_python.py       # Python commons dependency and NaN patches
+│   ├── test_patch_typescript.py   # npm peer dependency and NaN patches
 │   ├── test_pipeline.py           # Pipeline runner tests
 │   ├── test_schema.py             # Schema collision and extraction tests
 │   ├── test_asm.py                # External ASM checkout discovery tests
 │   ├── test_bundle.py             # Spec bundling / mapping classification tests
 │   ├── test_release.py            # CI publishing plan (release tags, pre-releases)
 │   ├── test_spec_structure.py     # Orphan schemas, ignored keywords, duplicate YAML keys
-│   ├── test_commons_patches.py    # Commons dependency, NaN and C# patch tests
 │   ├── test_verify_deserialization.py # Example round-trip helper tests
 │   ├── test_deserialization.py    # Full spec × language example matrix (toolchains + ASM)
 │   └── test_hplc_schema.py        # ASM-backed HPLC conformance tests
@@ -242,12 +252,12 @@ the host prerequisites above.
 common.yaml ──┐
 datacube.yaml ─┤
 core.yaml ─────┘─ merged_commons_yaml() ──► openapi-generator ──► commons/{lang}/
-               │                                  (+ NaN / C# converter patches)
+               │                                  (+ patch_commons_output())
 gc.yaml ────────┤─ bundle_spec()  → target/bundled-specs/gc.bundled.yaml
                 │   (local copies of reachable commons schemas; import +
                 │    schema mappings onto the commons package)
                 └──► openapi-generator ──► gc/{lang}/
-                                           (+ commons dependency declaration)
+                                           (+ patch_spec_output(): commons dependency, …)
 ```
 
 1. **Commons merge** — `generate_commons()` merges `common.yaml` + `datacube.yaml` + `core.yaml` into a
@@ -266,18 +276,33 @@ gc.yaml ────────┤─ bundle_spec()  → target/bundled-specs/g
    by exact `$asm.property-class` IRI when available, an unambiguous exact ontology label, or a
    unique official-reference alias.
    Unresolved fields remain unchanged and are reported as warnings.
-3. **Java pom.xml patch** — After Java generation, `patch_java_pom()` idempotently injects
-   the `central-publishing-maven-plugin` required for Maven Central deployment.
-4. **Post-generation patches** (`allotrope_gen/patch.py`, each fails loudly if the generated
-   code no longer matches):
+3. **Post-generation patches** — the pipeline calls `patch_commons_output()` or
+   `patch_spec_output()` of the `allotrope_gen/patch/` package after each generator run.
+   Its `__init__.py` docstring is the catalogue of every patch (problem, outputs, function per
+   language). Patches are idempotent, fail loudly with `PatchError` when generated code changes
+   shape, and add source files from `allotrope_gen/patch/templates/`. In short:
+   - Java: `central-publishing-maven-plugin` (Maven Central) and the commons dependency;
+   - commons dependency of spec packages (NuGet `PackageReference`, npm peer dependency,
+     Python requirement plus imports; the spec's parent `__init__.py` files are removed);
    - properties marked `x-asm-nan: true` (`QuantityValue.value` and its unit wrappers) accept
      and emit the ASM `"NaN"` string — Python `AsmDouble`, C# `AsmDouble`, TS `number | 'NaN'`;
      Jackson handles it natively;
    - C#: commons exposes `CommonsJsonConverters.AddTo(options)` and every spec
-     `HostConfiguration` calls it; optional enum writes are guarded (generator 7.23.0 bug).
+     `HostConfiguration` calls it; optional enum writes are guarded and `AdditionalProperties`
+     kept (generator 7.23.0 bugs); doubles are written in their shortest round-trip form on
+     every framework (.NET Framework wrote 17 digits); converters of `oneOf` primitive/object
+     unions (`DateTimeValue`, `DateTimeStampValue`, `IntegerValue`, selected by
+     `schema.primitive_unions()`) are replaced because the generated ones wrote `{}`.
+
+   To add a patch: implement it in the language module, add a catalogue row, call it from the
+   entry point(s), unit-test it in `tests/test_patch_<language>.py`, and cover its end-to-end
+   effect in `verify_deserialization.py` when the official examples do not.
 
 Validate the result with `python verify_deserialization.py`: every spec/language pair must
 round-trip the official REC examples losslessly (TypeScript: strict `satisfies` type-check).
+`SYNTHETIC_VARIANTS` add modified copies of the first example for constructs the official
+examples never use (NaN quantity, named diagnostic data cubes, both forms of the
+primitive/object unions).
 Members of official examples that the official schema does not declare at that location are
 not modeled; list them with a reason in `KNOWN_EXAMPLE_DEVIATIONS` instead.
 
@@ -524,6 +549,12 @@ specifications are modeled. They complement (but do not override) the orchestrat
   keys (PyYAML keeps the last silently), and no official `@index` item text used as a model
   description. Detector-specific `allOf` constraints of the official schema (e.g. conductivity
   peak units) are not separate models. `tests/test_spec_structure.py` enforces this.
+- 2026-11-20 - Passing the official examples is not enough: none of the GC, DSC or LC REC
+  examples contains a `DateTimeValue`, `DateTimeStampValue` or `IntegerValue`, so C# wrote
+  them as `{}` unnoticed (issue #12). When a model construct is absent from the examples, add a
+  synthetic variant to `verify_deserialization.py`. C# also targets `net48`, where
+  System.Text.Json formats doubles differently (issue #13); `net48` behaviour can be checked
+  on Linux by running a `net48` build with Mono.
 
 ## License
 

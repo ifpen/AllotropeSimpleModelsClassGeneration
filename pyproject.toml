@@ -27,6 +27,10 @@ dev = [
 where = ["."]
 include = ["allotrope_gen*"]
 
+[tool.setuptools.package-data]
+# Source files that post-generation patches add to generated code.
+"allotrope_gen.patch" = ["templates/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts   = "-v --tb=short"

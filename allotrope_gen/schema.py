@@ -380,3 +380,34 @@ def nan_capable_properties(schemas: dict[str, dict]) -> dict[str, list[str]]:
 
     result = {name: collect(name, frozenset({name})) for name in schemas}
     return {name: props for name, props in result.items() if props}
+
+
+def primitive_unions(schemas: dict[str, dict]) -> list[str]:
+    """Return the schemas that are a ``oneOf`` of a JSON primitive and an object.
+
+    ASM encodes some scalar values either as a bare JSON primitive or as a
+    typed ``{"@type": …, "value": …}`` object (``DateTimeValue``,
+    ``DateTimeStampValue``, ``IntegerValue``).  Generators that cannot
+    serialize such unions natively are patched for these schemas (see
+    :func:`allotrope_gen.patch.csharp.patch_primitive_unions`).
+
+    Args:
+        schemas: ``components/schemas`` mapping.
+
+    Returns:
+        Sorted schema names with exactly one primitive branch and at least
+        one object branch.
+    """
+    def is_primitive(branch: object) -> bool:
+        return isinstance(branch, dict) and branch.get("type") in _PRIMITIVE_TYPES
+
+    def is_object(branch: object) -> bool:
+        return isinstance(branch, dict) and (branch.get("type") == "object" or "$ref" in branch)
+
+    return sorted(
+        name for name, schema in schemas.items()
+        if isinstance(schema, dict)
+        and isinstance(branches := schema.get("oneOf"), list)
+        and sum(map(is_primitive, branches)) == 1
+        and any(map(is_object, branches))
+    )

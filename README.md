@@ -57,8 +57,14 @@ the same language and reuses its classes (quantity values, core documents,
 datacube) instead of re-declaring them. ASM writes an unavailable quantity as the
 JSON string `"NaN"`; every client reads it into, and writes it back from, a
 floating-point NaN (`QuantityValue.value`, TypeScript type `number | 'NaN'`).
+Values that ASM writes either as a bare primitive or as a typed object
+(`DateTimeValue`, `DateTimeStampValue`, `IntegerValue`, e.g. `"data processing
+time"`) are read and written in both forms.
 In C#, resolve `JsonSerializerOptionsProvider` from the services configured by an
 instrument package's `HostConfiguration`; it registers the commons converters too.
+Without the generic host, call `CommonsJsonConverters.AddTo(options)` on your own
+`JsonSerializerOptions`. Doubles are written in their shortest round-trip form on
+every target framework, including `net48`.
 
 ## Available instrument models
 
@@ -287,7 +293,9 @@ Java, C# and Python deserialize each example, serialize it back and must
 reproduce it without any dropped, altered or added member (Java additionally
 fails on unknown properties). TypeScript type-checks each example as an object
 literal with `satisfies <RootModel>` under `tsc --strict`. A variant of each
-technique's first example with one quantity set to `"NaN"` is checked as well.
+technique's first example with one quantity set to `"NaN"` is checked as well,
+together with synthetic variants for constructs the official examples never use
+(named diagnostic data cubes, both forms of the primitive/object unions).
 A few members of the official examples that the official schema does not
 declare at that location (for example the misspelled `InChiKey molecular
 structure`) are listed, with their reason, in `KNOWN_EXAMPLE_DEVIATIONS` and
