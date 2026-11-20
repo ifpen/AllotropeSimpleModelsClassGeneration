@@ -79,3 +79,11 @@ def test_helpers():
         "https://www.nuget.org/packages/IFPEN.AllotropeConverters.AllotropeModels.Commons"
     )
     assert registry_url("python", "hplc") == "https://pypi.org/project/ifpen-allotrope-models-hplc/"
+
+
+@pytest.mark.parametrize("module", MODULES)
+def test_ifpen_tagline_heads_every_readme(module: str):
+    text = render("java", module).text
+    lines = text.splitlines()
+    assert lines[2].startswith("A project from [IFP Energies Nouvelles][ifpen], a public research")
+    assert text.rstrip().endswith("[ifpen]: https://www.ifpenergiesnouvelles.com/")

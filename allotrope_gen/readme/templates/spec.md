@@ -1,5 +1,8 @@
 # ${title}
 
+A project from [IFP Energies Nouvelles][ifpen], a public research, innovation and
+training organization in the fields of energy, transport and the environment.
+
 ${language} ${kinds} for reading and writing
 [Allotrope Simple Model (ASM)](https://www.allotrope.org/asm) **${technique}**
 documents, release **${release}**. They are plain data models: deserialize an
@@ -53,5 +56,6 @@ The source code is licensed under [CeCILL 2.1](https://opensource.org/license/ce
 The models are derived from the ASM JSON schemas of the Allotrope Foundation,
 licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
 
-Maintained by [IFP Energies nouvelles (IFPEN)](https://www.ifpenergiesnouvelles.com/).
 Source code and issues: <https://github.com/ifpen/AllotropeSimpleModelsClassGeneration>.
+
+[ifpen]: https://www.ifpenergiesnouvelles.com/
